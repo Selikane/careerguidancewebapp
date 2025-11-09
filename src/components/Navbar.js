@@ -18,10 +18,7 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  AccountCircle,
   School,
-  Business,
-  AdminPanelSettings,
   Home,
   Work,
   Class,
@@ -35,7 +32,9 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // FIX: Use 'sm' instead of 'md' for better mobile experience
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Changed from 'md' to 'sm'
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -69,26 +68,42 @@ const Navbar = () => {
     switch (userType) {
       case 'student':
         return (
-          <Button color="inherit" onClick={() => handleNavigation('/student/dashboard')}>
-            Student Dashboard
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/student/dashboard')}
+            sx={{ mx: 1 }}
+          >
+            Dashboard
           </Button>
         );
       case 'institution':
         return (
-          <Button color="inherit" onClick={() => handleNavigation('/institution/dashboard')}>
-            Institution Dashboard
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/institution/dashboard')}
+            sx={{ mx: 1 }}
+          >
+            Dashboard
           </Button>
         );
       case 'company':
         return (
-          <Button color="inherit" onClick={() => handleNavigation('/company/dashboard')}>
-            Company Dashboard
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/company/dashboard')}
+            sx={{ mx: 1 }}
+          >
+            Dashboard
           </Button>
         );
       case 'admin':
         return (
-          <Button color="inherit" onClick={() => handleNavigation('/admin/dashboard')}>
-            Admin Dashboard
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/admin/dashboard')}
+            sx={{ mx: 1 }}
+          >
+            Dashboard
           </Button>
         );
       default:
@@ -115,7 +130,22 @@ const Navbar = () => {
           ))}
           {user && (
             <ListItem button onClick={() => handleNavigation(`/${userType}/dashboard`)}>
-              <ListItemText primary={`${userType.charAt(0).toUpperCase() + userType.slice(1)} Dashboard`} />
+              <ListItemText primary="My Dashboard" />
+            </ListItem>
+          )}
+          {!user && (
+            <>
+              <ListItem button onClick={() => handleNavigation('/login')}>
+                <ListItemText primary="Login" />
+              </ListItem>
+              <ListItem button onClick={() => handleNavigation('/register')}>
+                <ListItemText primary="Register" />
+              </ListItem>
+            </>
+          )}
+          {user && (
+            <ListItem button onClick={handleLogout}>
+              <ListItemText primary="Logout" />
             </ListItem>
           )}
         </List>
@@ -131,7 +161,11 @@ const Navbar = () => {
           <Typography
             variant="h6"
             component="div"
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
+            sx={{ 
+              flexGrow: 1, 
+              cursor: 'pointer',
+              fontSize: { xs: '1rem', sm: '1.25rem' } // Better responsive font size
+            }}
             onClick={() => handleNavigation('/')}
           >
             Career Guidance Lesotho
@@ -200,10 +234,18 @@ const Navbar = () => {
                 </div>
               ) : (
                 <Box>
-                  <Button color="inherit" onClick={() => handleNavigation('/login')}>
+                  <Button 
+                    color="inherit" 
+                    onClick={() => handleNavigation('/login')}
+                    sx={{ mx: 1 }}
+                  >
                     Login
                   </Button>
-                  <Button color="inherit" onClick={() => handleNavigation('/register')}>
+                  <Button 
+                    color="inherit" 
+                    onClick={() => handleNavigation('/register')}
+                    sx={{ mx: 1 }}
+                  >
                     Register
                   </Button>
                 </Box>
