@@ -215,14 +215,35 @@ const StudentDashboard = () => {
   const loadAvailableCourses = () => {
     return new Promise((resolve) => {
       const unsubscribe = coursesService.getAvailableCourses((snapshot) => {
-        const coursesData = snapshot.docs ? snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) : [];
+        const coursesData = snapshot.docs ? snapshot.docs.map(doc => {
+          const courseData = doc.data();
+          console.log('📚 Course data:', courseData);
+          
+          // Ensure all required fields have fallback values
+          return {
+            id: doc.id,
+            name: courseData.name || 'Unnamed Course',
+            institutionId: courseData.institutionId || 'unknown',
+            institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
+            faculty: courseData.faculty || 'General Studies',
+            duration: courseData.duration || 'Not specified',
+            fee: courseData.fee || 0,
+            requirements: courseData.requirements || 'None',
+            currentApplications: courseData.currentApplications || 0,
+            capacity: courseData.capacity || 100,
+            ...courseData
+          };
+        }) : [];
+        
         console.log('✅ Available courses loaded:', coursesData.length);
         setAvailableCourses(coursesData);
         unsubscribe();
         resolve(coursesData);
+      }, (error) => {
+        console.error('❌ Error loading courses:', error);
+        setAvailableCourses([]);
+        unsubscribe();
+        resolve([]);
       });
     });
   };
@@ -270,16 +291,29 @@ const StudentDashboard = () => {
     try {
       const { course } = applyCourseDialog;
       
+      // Validate required fields
+      if (!course.institutionName) {
+        console.error('❌ Missing institutionName in course:', course);
+        showSnackbar('Course data is incomplete. Please try again later.', 'error');
+        return;
+      }
+
       const applicationData = {
         studentId: studentId,
-        studentName: `${studentProfile?.firstName} ${studentProfile?.lastName}`,
+        studentName: `${studentProfile?.firstName} ${studentProfile?.lastName}` || user?.email,
         studentEmail: user.email,
         courseId: course.id,
         courseName: course.name,
         institutionId: course.institutionId,
-        institutionName: course.institutionName,
-        applicationDate: new Date()
+        institutionName: course.institutionName || 'Unknown Institution',
+        applicationDate: new Date(),
+        status: 'pending',
+        faculty: course.faculty || 'General',
+        duration: course.duration || 'Not specified',
+        fee: course.fee || 0
       };
+
+      console.log('📝 Submitting application:', applicationData);
 
       await studentApplicationsService.applyForCourse(applicationData);
       setApplyCourseDialog({ open: false, course: null });
@@ -289,7 +323,7 @@ const StudentDashboard = () => {
       await loadStudentApplications(studentId);
     } catch (error) {
       console.error('❌ Error applying for course:', error);
-      showSnackbar(error.message, 'error');
+      showSnackbar(error.message || 'Error applying for course', 'error');
     }
   };
 
@@ -299,14 +333,17 @@ const StudentDashboard = () => {
       
       const applicationData = {
         studentId: studentId,
-        studentName: `${studentProfile?.firstName} ${studentProfile?.lastName}`,
+        studentName: `${studentProfile?.firstName} ${studentProfile?.lastName}` || user?.email,
         studentEmail: user.email,
         jobId: job.id,
         jobTitle: job.title,
         companyId: job.companyId,
-        companyName: job.companyName,
-        applicationDate: new Date()
+        companyName: job.companyName || 'Unknown Company',
+        applicationDate: new Date(),
+        status: 'pending'
       };
+
+      console.log('📝 Submitting job application:', applicationData);
 
       await jobApplicationsService.applyForJob(applicationData);
       setApplyJobDialog({ open: false, job: null });
@@ -316,7 +353,7 @@ const StudentDashboard = () => {
       await loadJobApplications(studentId);
     } catch (error) {
       console.error('❌ Error applying for job:', error);
-      showSnackbar('Error applying for job', 'error');
+      showSnackbar(error.message || 'Error applying for job', 'error');
     }
   };
 
@@ -786,55 +823,57 @@ const StudentDashboard = () => {
             </Card>
           ) : (
             <Grid container spacing={2}>
-              {availableCourses.map((course) => {
-                const alreadyApplied = applications.some(app => app.courseId === course.id);
-                const institutionApplications = applications.filter(app => 
-                  app.institutionId === course.institutionId
-                ).length;
+              {availableCourses
+                .filter(course => course.name && course.institutionName) // Filter out invalid courses
+                .map((course) => {
+                  const alreadyApplied = applications.some(app => app.courseId === course.id);
+                  const institutionApplications = applications.filter(app => 
+                    app.institutionId === course.institutionId
+                  ).length;
 
-                return (
-                  <Grid item xs={12} md={6} key={course.id}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          {course.name}
-                        </Typography>
-                        <Typography color="textSecondary" gutterBottom>
-                          {course.institutionName} • {course.faculty}
-                        </Typography>
-                        <Typography variant="body2" gutterBottom>
-                          Duration: {course.duration}
-                        </Typography>
-                        <Typography variant="body2" gutterBottom>
-                          Fee: ${course.fee}
-                        </Typography>
-                        {course.requirements && (
+                  return (
+                    <Grid item xs={12} md={6} key={course.id}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            {course.name}
+                          </Typography>
+                          <Typography color="textSecondary" gutterBottom>
+                            {course.institutionName} • {course.faculty}
+                          </Typography>
                           <Typography variant="body2" gutterBottom>
-                            Requirements: {course.requirements}
+                            Duration: {course.duration}
                           </Typography>
-                        )}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                          <Typography variant="body2" color="textSecondary">
-                            Applications: {course.currentApplications}/{course.capacity}
+                          <Typography variant="body2" gutterBottom>
+                            Fee: ${course.fee}
                           </Typography>
-                          <Button
-                            variant={alreadyApplied ? "outlined" : "contained"}
-                            disabled={alreadyApplied || institutionApplications >= 2}
-                            onClick={() => setApplyCourseDialog({ open: true, course })}
-                          >
-                            {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply'}
-                          </Button>
-                        </Box>
-                        {institutionApplications >= 2 && (
-                          <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                            Maximum 2 applications per institution
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
+                          {course.requirements && (
+                            <Typography variant="body2" gutterBottom>
+                              Requirements: {course.requirements}
+                            </Typography>
+                          )}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                            <Typography variant="body2" color="textSecondary">
+                              Applications: {course.currentApplications}/{course.capacity}
+                            </Typography>
+                            <Button
+                              variant={alreadyApplied ? "outlined" : "contained"}
+                              disabled={alreadyApplied || institutionApplications >= 2}
+                              onClick={() => setApplyCourseDialog({ open: true, course })}
+                            >
+                              {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply'}
+                            </Button>
+                          </Box>
+                          {institutionApplications >= 2 && (
+                            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                              Maximum 2 applications per institution
+                            </Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
             </Grid>
           )}
         </TabPanel>
