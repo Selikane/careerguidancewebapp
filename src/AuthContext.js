@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail  // ADD THIS IMPORT
 } from 'firebase/auth';
 import { 
   doc, 
@@ -130,6 +131,38 @@ export const AuthProvider = ({ children }) => {
     setUserData(null);
     localStorage.removeItem('hardcodedAdminSession');
     console.log('✅ Hardcoded admin logged out');
+  };
+
+  // ADD PASSWORD RESET FUNCTION
+  const resetPassword = async (email) => {
+    try {
+      // Check if it's a hardcoded admin email
+      if (getHardcodedAdmin(email)) {
+        throw new Error('Password reset is not available for administrator accounts. Please contact system administrator.');
+      }
+
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      let errorMessage = 'Failed to send reset email. ';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage += 'No user found with this email address.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage += 'Invalid email address.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage += 'Too many attempts. Please try again later.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage += 'Password reset is not enabled. Please contact support.';
+          break;
+        default:
+          errorMessage += 'Please try again.';
+      }
+      throw new Error(errorMessage);
+    }
   };
 
   // Check for existing hardcoded admin session on page load
@@ -325,6 +358,7 @@ export const AuthProvider = ({ children }) => {
     register,
     login,
     logout,
+    resetPassword,  // ADD THIS TO THE CONTEXT VALUE
     loading,
     isHardcodedAdminSession
   };

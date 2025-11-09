@@ -4,7 +4,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail,
+  sendEmailVerification,  // ADD THIS IMPORT
+  applyActionCode  // ADD THIS IMPORT for email verification handling
 } from 'firebase/auth';
 import { 
   doc, 
@@ -34,6 +37,49 @@ export const AuthProvider = ({ children }) => {
 
   const isAdminEmail = (email) => {
     return adminEmails.includes(email.toLowerCase());
+  };
+
+  // ADD PASSWORD RESET FUNCTION
+  const resetPassword = async (email) => {
+    try {
+      // Check if it's an admin email
+      if (isAdminEmail(email)) {
+        throw new Error('Password reset is not available for administrator accounts. Please contact system administrator.');
+      }
+
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      let errorMessage = 'Failed to send reset email. ';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage += 'No user found with this email address.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage += 'Invalid email address.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage += 'Too many attempts. Please try again later.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage += 'Password reset is not enabled. Please contact support.';
+          break;
+        default:
+          errorMessage += 'Please try again.';
+      }
+      throw new Error(errorMessage);
+    }
+  };
+
+  // ADD RESEND VERIFICATION FUNCTION
+  const resendVerificationEmail = async (email) => {
+    try {
+      // For security, we need to sign in the user first to resend verification
+      // This is a simplified version - in production, you might want a different approach
+      throw new Error('Please sign out and try registering again, or contact support if you need verification email resent.');
+    } catch (error) {
+      throw new Error(error.message);
+    }
   };
 
   const createUserDocument = async (firebaseUser, userType = 'student') => {
@@ -190,6 +236,9 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
+      // Send email verification immediately after registration
+      await sendEmailVerification(firebaseUser);
+
       // Create user document in Firestore
       await createUserDocument(firebaseUser, userData.userType);
 
@@ -270,6 +319,15 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Check if email is verified (admin accounts are exempt)
+      if (!firebaseUser.emailVerified && !isAdminEmail(email)) {
+        // Sign out the user immediately since email is not verified
+        await signOut(auth);
+        throw new Error('Please verify your email address before logging in. Check your inbox for the verification email.');
+      }
+      
       // The onAuthStateChanged listener will handle user document creation/loading
       return userCredential;
     } catch (error) {
@@ -325,8 +383,10 @@ export const AuthProvider = ({ children }) => {
     register,
     login,
     logout,
+    resetPassword,
+    resendVerificationEmail,  // ADD THIS TO CONTEXT
     promoteToAdmin,
-    ensureAdminUserExists, // Export this function
+    ensureAdminUserExists,
     loading
   };
 
