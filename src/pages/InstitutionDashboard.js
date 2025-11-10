@@ -106,6 +106,9 @@ const InstitutionDashboard = () => {
     severity: 'success',
   });
 
+  // New State for Course Application Filtering
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('all'); // 'all' or a specific course ID
+
   // Dialog State
   const [courseDialog, setCourseDialog] = useState({
     open: false,
@@ -140,16 +143,18 @@ const InstitutionDashboard = () => {
   // --- EFFECT HOOKS (Initialization) ---
   useEffect(() => {
     const user = auth.currentUser;
+    let currentUid;
+
     if (user) {
-      setInstitutionId(user.uid);
-      initializeData(user.uid);
+      currentUid = user.uid;
     } else {
       // For a demo/unauthenticated user, use a fixed key
-      const demoInstitutionId = 'demo-institution-user-123';
-      setInstitutionId(demoInstitutionId);
-      initializeData(demoInstitutionId);
+      currentUid = 'demo-institution-user-123';
     }
-    // Cleanup function not strictly needed for the simplified demo setup but good practice
+    
+    setInstitutionId(currentUid);
+    initializeData(currentUid); // Always initialize data
+
     // return () => { /* clean up listeners */ };
   }, []);
 
@@ -190,11 +195,12 @@ const InstitutionDashboard = () => {
 
           setInitializing(false);
         } else {
+          // If no profile exists, set initializing to true to show setup wizard
           setInitializing(true);
         }
+        setLoading(false); // Set loading to false once the initial data check is complete
       });
 
-      setLoading(false);
 
       // Return cleanup function
       return () => {
@@ -211,10 +217,6 @@ const InstitutionDashboard = () => {
 
   // --- UI/UTILITY FUNCTIONS ---
   
-  /**
-   * FIX: This function was missing in the previous compiled code block, 
-   * leading to the "handleTabChange is not defined" error.
-   */
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -252,6 +254,14 @@ const InstitutionDashboard = () => {
     return course ? course.name : 'Course Not Found (ID: ' + courseId + ')';
   };
   
+  // Filtered Applications for display
+  const filteredApplications = applications.filter(app => {
+      if (selectedCourseFilter === 'all') {
+          return true;
+      }
+      return app.courseId === selectedCourseFilter;
+  });
+
   // --- FEATURE IMPLEMENTATION (CRUD) ---
 
   // 1. Institution Setup / Profile Management (Combined)
@@ -262,11 +272,16 @@ const InstitutionDashboard = () => {
         return;
       }
       
-      const setupData = { ...profileForm, faculties: faculties };
+      // Save the institution's real name along with other setup data
+      const setupData = { 
+        ...profileForm, 
+        faculties: faculties,
+        name: profileForm.name, 
+      };
       await institutionService.updateInstitution(institutionId, setupData);
       
       // Load demo data after successful setup
-      await demoService.createDemoData(institutionId);
+      await demoService.createDemoData(institutionId, profileForm.name); // Pass the institution name
       
       setInitializing(false);
       showSnackbar('Institution setup and demo data loaded successfully!', 'success');
@@ -278,7 +293,7 @@ const InstitutionDashboard = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      const updateData = { ...profileForm, faculties: faculties }; // Ensure faculties are saved too
+      const updateData = { ...profileForm, faculties: faculties };
       await institutionService.updateInstitution(institutionId, updateData);
       setProfileDialog({ open: false });
       showSnackbar('Profile updated successfully', 'success');
@@ -364,8 +379,17 @@ const InstitutionDashboard = () => {
 
   // 3. Application Management (Status Update)
   const handleApplicationAction = async (applicationId, action) => {
+    const institutionName = institution?.name;
+    if (!institutionName) {
+        showSnackbar('Institution name not loaded. Please complete the profile setup.', 'error');
+        return;
+    }
+    
     try {
-      await applicationsService.updateApplicationStatus(applicationId, action);
+      // Update the application status and also save the Institution's NAME
+      await applicationsService.updateApplicationStatus(applicationId, action, { 
+          institutionName: institutionName 
+      });
       showSnackbar(`Application ${action} successfully`, 'success');
     } catch (error) {
       showSnackbar(`Error updating application: ${error.message}`, 'error');
@@ -440,7 +464,7 @@ const InstitutionDashboard = () => {
   // --- RENDERING LOGIC ---
 
   // Initial Setup Wizard
-  if (initializing) {
+  if (initializing && !loading) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Card>
@@ -767,7 +791,7 @@ const InstitutionDashboard = () => {
       >
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Institution Dashboard 🏢
+            Institution Dashboard
           </Typography>
           <Typography variant="h6" color="textSecondary">
             {institution?.name || 'Your Institution'}
@@ -845,17 +869,40 @@ const InstitutionDashboard = () => {
       {/* --- Tabbed Content --- */}
       <Paper>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Applications 📝" />
-          <Tab label="Courses 📚" />
-          <Tab label="Admissions 🔔" />
-          <Tab label="Institution Profile ⚙️" />
+          <Tab label="Applications" />
+          <Tab label="Courses" />
+          <Tab label="Admissions" />
+          <Tab label="Institution Profile" />
         </Tabs>
 
-        {/* --- Tab 1: Applications --- */}
+        {/* --- Tab 1: Applications (Course Filtering Added) --- */}
         <TabPanel value={tabValue} index={0}>
           <Typography variant="h6" gutterBottom>
             Student Applications
           </Typography>
+
+          <Box sx={{ mb: 3, maxWidth: 300 }}>
+              <FormControl fullWidth>
+                  <InputLabel id="course-filter-label">Filter by Course</InputLabel>
+                  <Select
+                      labelId="course-filter-label"
+                      value={selectedCourseFilter}
+                      label="Filter by Course"
+                      onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                  >
+                      <MenuItem value="all">
+                          **All Courses** ({applications.length} Total)
+                      </MenuItem>
+                      {courses.map((course) => (
+                          <MenuItem key={course.id} value={course.id}>
+                              {course.name} ({applications.filter(app => app.courseId === course.id).length} Apps)
+                          </MenuItem>
+                      ))}
+                  </Select>
+              </FormControl>
+          </Box>
+
+
           {applications.length === 0 ? (
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -869,7 +916,7 @@ const InstitutionDashboard = () => {
                 <Button
                   variant="outlined"
                   sx={{ mt: 2 }}
-                  onClick={() => demoService.createDemoData(institutionId)}
+                  onClick={() => demoService.createDemoData(institutionId, institution?.name || 'Demo Institution')}
                 >
                   Load Demo Data
                 </Button>
@@ -882,13 +929,14 @@ const InstitutionDashboard = () => {
                   <TableRow>
                     <TableCell>Student Name</TableCell>
                     <TableCell>Course</TableCell>
-                    <TableCell>Application Date</TableCell>
+                    <TableCell>Institution Name</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {applications.map((app) => (
+                  {/* Use the FILTERED applications array */}
+                  {filteredApplications.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell>{app.studentName || 'N/A'}</TableCell>
                       <TableCell>
@@ -896,9 +944,8 @@ const InstitutionDashboard = () => {
                         {app.courseId ? getCourseNameById(app.courseId) : app.courseName || 'N/A'}
                       </TableCell>
                       <TableCell>
-                        {app.applicationDate?.toDate
-                          ? app.applicationDate.toDate().toLocaleDateString()
-                          : app.applicationDate || 'N/A'}
+                         {/* Display the saved Institution Name */}
+                        {app.institutionName || 'Name Not Saved'} 
                       </TableCell>
                       <TableCell>{getStatusChip(app.status)}</TableCell>
                       <TableCell>
@@ -910,7 +957,7 @@ const InstitutionDashboard = () => {
                               onClick={() =>
                                 handleApplicationAction(app.id, 'admitted')
                               }
-                              title="Admit"
+                              title="Admit (Saves Institution Name to Application)'"
                             >
                               <CheckCircle />
                             </IconButton>
@@ -919,7 +966,7 @@ const InstitutionDashboard = () => {
                               onClick={() =>
                                 handleApplicationAction(app.id, 'rejected')
                               }
-                              title="Reject"
+                              title="Reject (Saves Institution Name to Application)"
                             >
                               <Cancel />
                             </IconButton>
@@ -1160,7 +1207,7 @@ const InstitutionDashboard = () => {
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Faculty Management 📚
+                    Faculty Management
                   </Typography>
                   <Typography color="textSecondary" gutterBottom>
                     Define and manage the faculties/departments offered by your institution.
