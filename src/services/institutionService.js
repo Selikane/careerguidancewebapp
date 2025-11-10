@@ -1,15 +1,12 @@
-// src/services/institutionService.js
 import { 
   collection, 
   doc, 
-  getDocs, 
   getDoc, 
   addDoc, 
   updateDoc, 
   deleteDoc, 
   query, 
   where, 
-  orderBy,
   onSnapshot,
   setDoc,
   serverTimestamp
@@ -26,10 +23,10 @@ const handleFirestoreError = (error, defaultMessage = 'Firestore operation faile
 export const applicationsService = {
   getApplications: (institutionId, callback) => {
     try {
+      // Removed orderBy to prevent runtime index errors. Client-side sorting is preferred.
       const q = query(
         collection(db, 'applications'),
-        where('institutionId', '==', institutionId),
-        orderBy('applicationDate', 'desc')
+        where('institutionId', '==', institutionId)
       );
       
       return onSnapshot(q, 
@@ -46,22 +43,25 @@ export const applicationsService = {
     }
   },
 
-  updateApplicationStatus: async (applicationId, status) => {
+  // FIX: Added 'extraData' parameter to save institutionName or other application data
+  updateApplicationStatus: async (applicationId, status, extraData = {}) => {
     try {
       const applicationRef = doc(db, 'applications', applicationId);
       await updateDoc(applicationRef, {
         status,
+        ...extraData, // Merge the extra data (like institutionName)
         updatedAt: serverTimestamp()
       });
     } catch (error) {
       if (error.code === 'not-found') {
-        console.log('Application not found, creating new one...');
+        console.log('Application not found, attempting to create one with placeholder data...');
         const applicationRef = doc(db, 'applications', applicationId);
         await setDoc(applicationRef, {
           status,
+          ...extraData,
           updatedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
-          institutionId: 'demo-institution'
+          institutionId: 'placeholder-institution'
         });
       } else {
         handleFirestoreError(error, 'Failed to update application status');
@@ -84,10 +84,10 @@ export const applicationsService = {
 export const coursesService = {
   getCourses: (institutionId, callback) => {
     try {
+      // Removed orderBy to prevent runtime index errors. Client-side sorting is preferred.
       const q = query(
         collection(db, 'courses'),
-        where('institutionId', '==', institutionId),
-        orderBy('createdAt', 'desc')
+        where('institutionId', '==', institutionId)
       );
       
       return onSnapshot(q, 
@@ -107,6 +107,7 @@ export const coursesService = {
   addCourse: async (courseData) => {
     try {
       const coursesRef = collection(db, 'courses');
+      // Returns DocumentReference which includes the new ID
       return await addDoc(coursesRef, {
         ...courseData,
         createdAt: serverTimestamp(),
@@ -145,13 +146,11 @@ export const institutionService = {
     try {
       const institutionRef = doc(db, 'institutions', institutionId);
       
+      // Removed the internal createDefaultInstitution call to prevent potential recursion/auth race conditions.
+      // The component handles the non-existence check and creation via the setup wizard.
       return onSnapshot(institutionRef, 
-        async (snapshot) => {
-          if (!snapshot.exists()) {
-            await institutionService.createDefaultInstitution(institutionId);
-          } else {
-            callback(snapshot);
-          }
+        (snapshot) => {
+          callback(snapshot);
         },
         (error) => {
           console.log('Institution document error:', error);
@@ -214,40 +213,19 @@ export const admissionsService = {
   },
 
   getAdmissionStats: async (institutionId) => {
-    try {
-      const applicationsRef = collection(db, 'applications');
-      const q = query(
-        applicationsRef,
-        where('institutionId', '==', institutionId)
-      );
-      
-      const snapshot = await getDocs(q);
-      const applications = snapshot.docs.map(doc => doc.data());
-      
-      return {
-        total: applications.length,
-        admitted: applications.filter(app => app.status === 'admitted').length,
-        rejected: applications.filter(app => app.status === 'rejected').length,
-        pending: applications.filter(app => app.status === 'pending').length
-      };
-    } catch (error) {
-      console.log('Error getting admission stats, returning defaults:', error);
-      return {
-        total: 0,
-        admitted: 0,
-        rejected: 0,
-        pending: 0
-      };
-    }
+    // NOTE: This function uses getDocs which is a one-time read, but the component uses onSnapshot for applications, 
+    // so this service function is now redundant as the component calculates stats from the live snapshot.
+    console.log('Warning: getAdmissionStats is redundant; stats calculated in component.');
+    return { total: 0, admitted: 0, rejected: 0, pending: 0 };
   }
 };
 
 // Demo data for testing
 export const demoService = {
-  createDemoData: async (institutionId) => {
+  // FIX: Added institutionName to correctly link demo applications
+  createDemoData: async (institutionId, institutionName = 'Demo Institution') => {
     try {
-      // Create demo courses
-      const demoCourses = [
+      const coursesToCreate = [
         {
           name: 'Computer Science',
           faculty: 'Science & Technology',
@@ -279,36 +257,45 @@ export const demoService = {
           institutionId
         }
       ];
-
-      for (const course of demoCourses) {
-        await coursesService.addCourse(course);
+      
+      const createdCourses = [];
+      // 1. Create courses and collect their generated IDs
+      for (const course of coursesToCreate) {
+        const docRef = await coursesService.addCourse(course);
+        createdCourses.push({ id: docRef.id, ...course });
       }
 
-      // Create demo applications
+      // 2. Create demo applications using the collected Course IDs
       const demoApplications = [
         {
           studentName: 'John Doe',
           studentEmail: 'john.doe@example.com',
-          courseName: 'Computer Science',
+          courseId: createdCourses[0].id, // FIX: Use ID for filtering
+          courseName: createdCourses[0].name,
           status: 'pending',
           applicationDate: new Date('2024-01-15'),
-          institutionId
+          institutionId,
+          institutionName // FIX: Added institutionName
         },
         {
           studentName: 'Jane Smith',
           studentEmail: 'jane.smith@example.com',
-          courseName: 'Business Administration',
+          courseId: createdCourses[1].id, // FIX: Use ID for filtering
+          courseName: createdCourses[1].name,
           status: 'admitted',
           applicationDate: new Date('2024-01-10'),
-          institutionId
+          institutionId,
+          institutionName
         },
         {
           studentName: 'Mike Johnson',
           studentEmail: 'mike.johnson@example.com',
-          courseName: 'Electrical Engineering',
+          courseId: createdCourses[2].id, // FIX: Use ID for filtering
+          courseName: createdCourses[2].name,
           status: 'rejected',
           applicationDate: new Date('2024-01-08'),
-          institutionId
+          institutionId,
+          institutionName
         }
       ];
 
