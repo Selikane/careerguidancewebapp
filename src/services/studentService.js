@@ -25,7 +25,7 @@ const safeCallback = (callback, data) => {
 };
 
 // Student Applications
-export const studentApplicationsService = {
+const studentApplicationsService = {
   // Get all applications for a student
   getStudentApplications: (studentId, callback) => {
     try {
@@ -105,7 +105,7 @@ export const studentApplicationsService = {
 };
 
 // Job Applications
-export const jobApplicationsService = {
+const jobApplicationsService = {
   // Apply for a job
   applyForJob: async (applicationData) => {
     try {
@@ -151,7 +151,7 @@ export const jobApplicationsService = {
 };
 
 // Student Profile
-export const studentProfileService = {
+const studentProfileService = {
   // Get student profile
   getStudentProfile: (studentId, callback) => {
     try {
@@ -218,7 +218,7 @@ export const studentProfileService = {
 };
 
 // Courses and Jobs
-export const coursesService = {
+const coursesService = {
   // Get all available courses
   getAvailableCourses: (callback) => {
     try {
@@ -255,7 +255,7 @@ export const coursesService = {
   }
 };
 
-export const jobsService = {
+const jobsService = {
   // Get all available jobs
   getAvailableJobs: (callback) => {
     try {
@@ -343,7 +343,7 @@ export const jobsService = {
 };
 
 // Notifications
-export const notificationsService = {
+const notificationsService = {
   // Get student notifications
   getStudentNotifications: (studentId, callback) => {
     try {
@@ -384,7 +384,7 @@ export const notificationsService = {
 };
 
 // Demo data for testing
-export const demoStudentService = {
+const demoStudentService = {
   createDemoStudentProfile: async (studentId, email) => {
     try {
       const studentRef = doc(db, 'students', studentId);
@@ -409,6 +409,18 @@ export const demoStudentService = {
   }
 };
 
+// Export all services
+export {
+  studentApplicationsService,
+  jobApplicationsService,
+  studentProfileService,
+  coursesService,
+  jobsService,
+  notificationsService,
+  demoStudentService
+};
+
+// Default export for backward compatibility
 export default {
   studentApplicationsService,
   jobApplicationsService,
