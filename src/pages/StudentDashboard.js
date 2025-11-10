@@ -1,5 +1,5 @@
 // src/pages/StudentDashboard.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   Container,
   Grid,
@@ -24,7 +24,6 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
-  IconButton,
   MenuItem,
   FormControl,
   InputLabel,
@@ -41,7 +40,8 @@ import {
   Cancel,
   Add,
   Upload,
-  Edit
+  Edit,
+  Refresh
 } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import {
@@ -53,6 +53,8 @@ import {
   notificationsService,
   demoStudentService
 } from '../services/studentService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -76,6 +78,8 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   // Dialog states
   const [applyCourseDialog, setApplyCourseDialog] = useState({ open: false, course: null });
@@ -94,6 +98,13 @@ const StudentDashboard = () => {
   });
 
   const [uploadFile, setUploadFile] = useState(null);
+
+  // Refs for unsubscribe functions
+  const applicationsUnsubscribe = useRef(null);
+  const jobApplicationsUnsubscribe = useRef(null);
+  const coursesUnsubscribe = useRef(null);
+  const notificationsUnsubscribe = useRef(null);
+  const profileUnsubscribe = useRef(null);
 
   const educationLevels = [
     'high_school',
@@ -122,156 +133,229 @@ const StudentDashboard = () => {
       setStudentId(user.uid);
       initializeData(user.uid);
     }
+
+    // Cleanup function
+    return () => {
+      if (applicationsUnsubscribe.current) {
+        applicationsUnsubscribe.current();
+      }
+      if (jobApplicationsUnsubscribe.current) {
+        jobApplicationsUnsubscribe.current();
+      }
+      if (coursesUnsubscribe.current) {
+        coursesUnsubscribe.current();
+      }
+      if (notificationsUnsubscribe.current) {
+        notificationsUnsubscribe.current();
+      }
+      if (profileUnsubscribe.current) {
+        profileUnsubscribe.current();
+      }
+    };
   }, [user]);
+
+  // Fallback function to load data manually if real-time listeners fail
+  const loadDataManually = async (uid) => {
+    try {
+      console.log('🔄 Loading data manually for:', uid);
+      
+      // Load applications manually
+      const applicationsQuery = query(
+        collection(db, 'courseApplications'),
+        where('studentId', '==', uid)
+      );
+      const applicationsSnapshot = await getDocs(applicationsQuery);
+      const manualApplications = applicationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setApplications(manualApplications);
+
+      // Load courses manually
+      const coursesQuery = query(collection(db, 'courses'));
+      const coursesSnapshot = await getDocs(coursesQuery);
+      const manualCourses = coursesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAvailableCourses(manualCourses);
+
+      // Load job applications manually
+      const jobAppsQuery = query(
+        collection(db, 'jobApplications'),
+        where('studentId', '==', uid)
+      );
+      const jobAppsSnapshot = await getDocs(jobAppsQuery);
+      const manualJobApps = jobAppsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setJobApplications(manualJobApps);
+
+      // Load notifications manually
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('studentId', '==', uid)
+      );
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      const manualNotifications = notificationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(manualNotifications);
+
+      console.log('✅ Manual data loaded:', {
+        applications: manualApplications.length,
+        courses: manualCourses.length,
+        jobApps: manualJobApps.length,
+        notifications: manualNotifications.length
+      });
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error loading data manually:', error);
+      return false;
+    }
+  };
 
   const initializeData = async (uid) => {
     setLoading(true);
-    console.log('🚀 Initializing student dashboard for:', uid);
+    setDataLoaded(false);
 
     try {
-      // Load student profile
-      await loadStudentProfile(uid);
-      
-      // Load applications
-      await loadStudentApplications(uid);
-      
-      // Load job applications
-      await loadJobApplications(uid);
-      
-      // Load available courses
-      await loadAvailableCourses();
-      
-      // Load job matches
-      await loadJobMatches(uid);
-      
-      // Load notifications
-      await loadNotifications(uid);
+      // First try to load student profile
+      const profileLoaded = await new Promise((resolve) => {
+        profileUnsubscribe.current = studentProfileService.getStudentProfile(uid, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = { id: snapshot.id, ...snapshot.data() };
+            setStudentProfile(data);
+            setProfileForm({
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              phone: data.phone || '',
+              address: data.address || '',
+              educationLevel: data.educationLevel || '',
+              skills: data.skills || []
+            });
+            setInitializing(false);
+            resolve(true);
+          } else {
+            setInitializing(true);
+            resolve(false);
+          }
+        });
+      });
 
+      // Set up real-time listeners with error handling
+      const setupListeners = async () => {
+        try {
+          // Applications listener
+          applicationsUnsubscribe.current = studentApplicationsService.getStudentApplications(uid, (snapshot) => {
+            if (snapshot.docs) {
+              const applicationsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              setApplications(applicationsData);
+            }
+          });
+
+          // Courses listener
+          coursesUnsubscribe.current = coursesService.getAvailableCourses((snapshot) => {
+            if (snapshot.docs) {
+              const coursesData = snapshot.docs.map(doc => {
+                const courseData = doc.data();
+                return {
+                  id: doc.id,
+                  name: courseData.name || 'Unnamed Course',
+                  institutionId: courseData.institutionId || 'unknown',
+                  institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
+                  faculty: courseData.faculty || 'General Studies',
+                  duration: courseData.duration || 'Not specified',
+                  fee: courseData.fee || 0,
+                  requirements: courseData.requirements || 'None',
+                  currentApplications: courseData.currentApplications || 0,
+                  capacity: courseData.capacity || 100,
+                  ...courseData
+                };
+              });
+              setAvailableCourses(coursesData);
+            }
+          });
+
+          // Job applications listener
+          jobApplicationsUnsubscribe.current = jobApplicationsService.getStudentJobApplications(uid, (snapshot) => {
+            if (snapshot.docs) {
+              const jobAppsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              setJobApplications(jobAppsData);
+            }
+          });
+
+          // Notifications listener
+          notificationsUnsubscribe.current = notificationsService.getStudentNotifications(uid, (snapshot) => {
+            if (snapshot.docs) {
+              const notificationsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              setNotifications(notificationsData);
+            }
+          });
+
+          // Load job matches (not real-time)
+          try {
+            const matches = await jobsService.getJobMatches(uid);
+            setJobMatches(matches);
+          } catch (error) {
+            console.error('Error loading job matches:', error);
+            setJobMatches([]);
+          }
+
+          return true;
+        } catch (error) {
+          console.error('Error setting up listeners:', error);
+          return false;
+        }
+      };
+
+      const listenersSetup = await setupListeners();
+
+      // If listeners fail, try manual loading
+      if (!listenersSetup) {
+        console.log('🔄 Listeners failed, trying manual load...');
+        await loadDataManually(uid);
+      }
+
+      setDataLoaded(true);
       setLoading(false);
+
     } catch (error) {
       console.error('❌ Error initializing student data:', error);
+      // Try manual loading as last resort
+      await loadDataManually(uid);
+      setDataLoaded(true);
       setLoading(false);
     }
   };
 
-  const loadStudentProfile = (uid) => {
-    return new Promise((resolve) => {
-      const unsubscribe = studentProfileService.getStudentProfile(uid, (snapshot) => {
-        if (snapshot.exists()) {
-          const data = { id: snapshot.id, ...snapshot.data() };
-          console.log('✅ Student profile loaded:', data);
-          setStudentProfile(data);
-          setProfileForm({
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            phone: data.phone || '',
-            address: data.address || '',
-            educationLevel: data.educationLevel || '',
-            skills: data.skills || []
-          });
-          setInitializing(false);
-          unsubscribe();
-          resolve(data);
-        } else {
-          console.log('❌ No student profile found');
-          setInitializing(true);
-          unsubscribe();
-          resolve(null);
-        }
-      });
-    });
-  };
-
-  const loadStudentApplications = (uid) => {
-    return new Promise((resolve) => {
-      const unsubscribe = studentApplicationsService.getStudentApplications(uid, (snapshot) => {
-        const applicationsData = snapshot.docs ? snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) : [];
-        console.log('✅ Applications loaded:', applicationsData.length);
-        setApplications(applicationsData);
-        unsubscribe();
-        resolve(applicationsData);
-      });
-    });
-  };
-
-  const loadJobApplications = (uid) => {
-    return new Promise((resolve) => {
-      const unsubscribe = jobApplicationsService.getStudentJobApplications(uid, (snapshot) => {
-        const jobAppsData = snapshot.docs ? snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) : [];
-        console.log('✅ Job applications loaded:', jobAppsData.length);
-        setJobApplications(jobAppsData);
-        unsubscribe();
-        resolve(jobAppsData);
-      });
-    });
-  };
-
-  const loadAvailableCourses = () => {
-    return new Promise((resolve) => {
-      const unsubscribe = coursesService.getAvailableCourses((snapshot) => {
-        const coursesData = snapshot.docs ? snapshot.docs.map(doc => {
-          const courseData = doc.data();
-          console.log('📚 Course data:', courseData);
-          
-          // Ensure all required fields have fallback values
-          return {
-            id: doc.id,
-            name: courseData.name || 'Unnamed Course',
-            institutionId: courseData.institutionId || 'unknown',
-            institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
-            faculty: courseData.faculty || 'General Studies',
-            duration: courseData.duration || 'Not specified',
-            fee: courseData.fee || 0,
-            requirements: courseData.requirements || 'None',
-            currentApplications: courseData.currentApplications || 0,
-            capacity: courseData.capacity || 100,
-            ...courseData
-          };
-        }) : [];
-        
-        console.log('✅ Available courses loaded:', coursesData.length);
-        setAvailableCourses(coursesData);
-        unsubscribe();
-        resolve(coursesData);
-      }, (error) => {
-        console.error('❌ Error loading courses:', error);
-        setAvailableCourses([]);
-        unsubscribe();
-        resolve([]);
-      });
-    });
-  };
-
-  const loadJobMatches = async (uid) => {
+  const handleRefreshData = async () => {
+    setRefreshing(true);
+    
     try {
-      const matches = await jobsService.getJobMatches(uid);
-      console.log('✅ Job matches loaded:', matches.length);
-      setJobMatches(matches);
+      if (studentId) {
+        // Force reload all data
+        await loadDataManually(studentId);
+        showSnackbar('Data refreshed successfully', 'success');
+      }
     } catch (error) {
-      console.error('❌ Error loading job matches:', error);
-      setJobMatches([]);
+      console.error('Error refreshing data:', error);
+      showSnackbar('Error refreshing data', 'error');
+    } finally {
+      setRefreshing(false);
     }
-  };
-
-  const loadNotifications = (uid) => {
-    return new Promise((resolve) => {
-      const unsubscribe = notificationsService.getStudentNotifications(uid, (snapshot) => {
-        const notificationsData = snapshot.docs ? snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) : [];
-        console.log('✅ Notifications loaded:', notificationsData.length);
-        setNotifications(notificationsData);
-        unsubscribe();
-        resolve(notificationsData);
-      });
-    });
   };
 
   const handleInitializeProfile = async () => {
@@ -281,7 +365,7 @@ const StudentDashboard = () => {
       await initializeData(studentId);
       showSnackbar('Student profile created successfully!', 'success');
     } catch (error) {
-      console.error('❌ Error creating student profile:', error);
+      console.error('Error creating student profile:', error);
       setInitializing(false);
       showSnackbar('Error creating student profile', 'error');
     }
@@ -290,13 +374,6 @@ const StudentDashboard = () => {
   const handleApplyForCourse = async () => {
     try {
       const { course } = applyCourseDialog;
-      
-      // Validate required fields
-      if (!course.institutionName) {
-        console.error('❌ Missing institutionName in course:', course);
-        showSnackbar('Course data is incomplete. Please try again later.', 'error');
-        return;
-      }
 
       const applicationData = {
         studentId: studentId,
@@ -313,16 +390,17 @@ const StudentDashboard = () => {
         fee: course.fee || 0
       };
 
-      console.log('📝 Submitting application:', applicationData);
-
       await studentApplicationsService.applyForCourse(applicationData);
       setApplyCourseDialog({ open: false, course: null });
       showSnackbar('Application submitted successfully!', 'success');
       
-      // Refresh applications
-      await loadStudentApplications(studentId);
+      // Refresh applications to show the new one
+      setTimeout(() => {
+        loadDataManually(studentId);
+      }, 1000);
+      
     } catch (error) {
-      console.error('❌ Error applying for course:', error);
+      console.error('Error applying for course:', error);
       showSnackbar(error.message || 'Error applying for course', 'error');
     }
   };
@@ -343,16 +421,12 @@ const StudentDashboard = () => {
         status: 'pending'
       };
 
-      console.log('📝 Submitting job application:', applicationData);
-
       await jobApplicationsService.applyForJob(applicationData);
       setApplyJobDialog({ open: false, job: null });
       showSnackbar('Job application submitted successfully!', 'success');
       
-      // Refresh job applications
-      await loadJobApplications(studentId);
     } catch (error) {
-      console.error('❌ Error applying for job:', error);
+      console.error('Error applying for job:', error);
       showSnackbar(error.message || 'Error applying for job', 'error');
     }
   };
@@ -361,9 +435,12 @@ const StudentDashboard = () => {
     try {
       await studentApplicationsService.withdrawApplication(applicationId);
       showSnackbar('Application withdrawn successfully', 'success');
-      await loadStudentApplications(studentId);
+      // Refresh applications
+      setTimeout(() => {
+        loadDataManually(studentId);
+      }, 500);
     } catch (error) {
-      console.error('❌ Error withdrawing application:', error);
+      console.error('Error withdrawing application:', error);
       showSnackbar('Error withdrawing application', 'error');
     }
   };
@@ -372,10 +449,19 @@ const StudentDashboard = () => {
     try {
       await studentProfileService.updateStudentProfile(studentId, profileForm);
       setProfileDialog({ open: false });
-      await loadStudentProfile(studentId);
+      // Reload profile
+      const profileQuery = query(
+        collection(db, 'students'),
+        where('__name__', '==', studentId)
+      );
+      const profileSnapshot = await getDocs(profileQuery);
+      if (!profileSnapshot.empty) {
+        const profileData = profileSnapshot.docs[0].data();
+        setStudentProfile(profileData);
+      }
       showSnackbar('Profile updated successfully', 'success');
     } catch (error) {
-      console.error('❌ Error updating profile:', error);
+      console.error('Error updating profile:', error);
       showSnackbar('Error updating profile', 'error');
     }
   };
@@ -390,10 +476,9 @@ const StudentDashboard = () => {
       await studentProfileService.uploadDocument(studentId, uploadFile, uploadDialog.documentType);
       setUploadDialog({ open: false, documentType: '' });
       setUploadFile(null);
-      await loadStudentProfile(studentId);
       showSnackbar('Document uploaded successfully', 'success');
     } catch (error) {
-      console.error('❌ Error uploading document:', error);
+      console.error('Error uploading document:', error);
       showSnackbar('Error uploading document', 'error');
     }
   };
@@ -401,9 +486,12 @@ const StudentDashboard = () => {
   const handleMarkAsRead = async (notificationId) => {
     try {
       await notificationsService.markAsRead(notificationId);
-      await loadNotifications(studentId);
+      // Refresh notifications
+      setTimeout(() => {
+        loadDataManually(studentId);
+      }, 500);
     } catch (error) {
-      console.error('❌ Error marking notification as read:', error);
+      console.error('Error marking notification as read:', error);
     }
   };
 
@@ -423,7 +511,8 @@ const StudentDashboard = () => {
     const statusConfig = {
       admitted: { color: 'success', label: 'Admitted', icon: <CheckCircle /> },
       pending: { color: 'warning', label: 'Pending', icon: <Pending /> },
-      rejected: { color: 'error', label: 'Rejected', icon: <Cancel /> }
+      rejected: { color: 'error', label: 'Rejected', icon: <Cancel /> },
+      withdrawn: { color: 'default', label: 'Withdrawn', icon: <Cancel /> }
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
@@ -434,6 +523,31 @@ const StudentDashboard = () => {
         size="small"
       />
     );
+  };
+
+  // Helper function to format Firestore timestamps
+  const formatFirestoreDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    
+    try {
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate().toLocaleDateString();
+      }
+      else if (timestamp.seconds) {
+        return new Date(timestamp.seconds * 1000).toLocaleDateString();
+      }
+      else if (timestamp instanceof Date) {
+        return timestamp.toLocaleDateString();
+      }
+      else if (typeof timestamp === 'string') {
+        return new Date(timestamp).toLocaleDateString();
+      }
+      else {
+        return 'Invalid Date';
+      }
+    } catch (error) {
+      return 'Date Error';
+    }
   };
 
   // Setup Wizard for new student
@@ -650,14 +764,29 @@ const StudentDashboard = () => {
           <Typography variant="h6" color="textSecondary">
             Welcome back, {studentProfile?.firstName || user?.email}
           </Typography>
+          {!dataLoaded && (
+            <Typography variant="caption" color="warning.main">
+              Data loading... If this persists, click Refresh
+            </Typography>
+          )}
         </Box>
-        <Button 
-          variant="outlined" 
-          startIcon={<Edit />}
-          onClick={() => setProfileDialog({ open: true })}
-        >
-          Edit Profile
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />}
+            onClick={handleRefreshData}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<Edit />}
+            onClick={() => setProfileDialog({ open: true })}
+          >
+            Edit Profile
+          </Button>
+        </Box>
       </Box>
 
       {/* Quick Stats */}
@@ -681,8 +810,8 @@ const StudentDashboard = () => {
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Work sx={{ fontSize: 40, color: 'secondary.main', mr: 2 }} />
                 <Box>
-                  <Typography variant="h4">{jobMatches.length}</Typography>
-                  <Typography variant="body2">Job Matches</Typography>
+                  <Typography variant="h4">{jobApplications.length}</Typography>
+                  <Typography variant="body2">Job Applications</Typography>
                 </Box>
               </Box>
             </CardContent>
@@ -735,6 +864,7 @@ const StudentDashboard = () => {
           <Typography variant="h6" gutterBottom>
             My Course Applications ({applications.length})
           </Typography>
+          
           {applications.length === 0 ? (
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -758,10 +888,34 @@ const StudentDashboard = () => {
               {applications.map((app) => (
                 <ListItem key={app.id} divider>
                   <ListItemText
-                    primary={app.courseName}
-                    secondary={`${app.institutionName} • Applied: ${app.applicationDate?.toDate ? app.applicationDate.toDate().toLocaleDateString() : 'N/A'}`}
+                    primary={
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography variant="h6" component="div">
+                          {app.courseName}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          ${app.fee || 0}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" component="div">
+                          <strong>Institution:</strong> {app.institutionName}
+                        </Typography>
+                        <Typography variant="body2" component="div">
+                          <strong>Faculty:</strong> {app.faculty}
+                        </Typography>
+                        <Typography variant="body2" component="div">
+                          <strong>Applied:</strong> {formatFirestoreDate(app.applicationDate)}
+                        </Typography>
+                        <Typography variant="body2" component="div">
+                          <strong>Duration:</strong> {app.duration}
+                        </Typography>
+                      </Box>
+                    }
                   />
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 140 }}>
                     {getStatusChip(app.status)}
                     {app.status === 'pending' && (
                       <Button 
@@ -795,7 +949,7 @@ const StudentDashboard = () => {
                 <ListItem key={app.id} divider>
                   <ListItemText
                     primary={app.jobTitle}
-                    secondary={`${app.companyName} • Applied: ${app.applicationDate?.toDate ? app.applicationDate.toDate().toLocaleDateString() : 'N/A'}`}
+                    secondary={`${app.companyName} • Applied: ${formatFirestoreDate(app.applicationDate)}`}
                   />
                   {getStatusChip(app.status)}
                 </ListItem>
@@ -824,7 +978,7 @@ const StudentDashboard = () => {
           ) : (
             <Grid container spacing={2}>
               {availableCourses
-                .filter(course => course.name && course.institutionName) // Filter out invalid courses
+                .filter(course => course.name && course.institutionName)
                 .map((course) => {
                   const alreadyApplied = applications.some(app => app.courseId === course.id);
                   const institutionApplications = applications.filter(app => 
@@ -982,7 +1136,7 @@ const StudentDashboard = () => {
                 >
                   <ListItemText
                     primary={notification.message}
-                    secondary={notification.createdAt?.toDate ? notification.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                    secondary={formatFirestoreDate(notification.createdAt)}
                     sx={{ 
                       opacity: notification.read ? 0.7 : 1,
                     }}
