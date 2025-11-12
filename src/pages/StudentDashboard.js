@@ -839,23 +839,6 @@ const StudentDashboard = () => {
           >
             Edit Profile
           </Button>
-          {/* Debug button for testing courses load */}
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={async () => {
-              const coursesQuery = query(collection(db, 'courses'));
-              const coursesSnapshot = await getDocs(coursesQuery);
-              const courses = coursesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
-              console.log('Direct courses query:', courses);
-              setAvailableCourses(courses);
-            }}
-          >
-            Test Courses
-          </Button>
         </Box>
       </Box>
 
@@ -1033,15 +1016,6 @@ const StudentDashboard = () => {
           <Typography variant="h6" gutterBottom>
             Available Courses ({availableCourses.length})
           </Typography>
-          
-          {/* Debug info */}
-          <Box sx={{ mb: 2, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-            <Typography variant="caption" color="textSecondary">
-              Debug: {availableCourses.length} courses loaded | 
-              Data loaded: {dataLoaded ? 'Yes' : 'No'} | 
-              Refreshing: {refreshing ? 'Yes' : 'No'}
-            </Typography>
-          </Box>
 
           {availableCourses.length === 0 ? (
             <Card>
