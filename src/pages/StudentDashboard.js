@@ -154,6 +154,38 @@ const StudentDashboard = () => {
     };
   }, [user]);
 
+  // Setup course listener separately
+  const setupCourseListener = () => {
+    try {
+      coursesUnsubscribe.current = coursesService.getAvailableCourses((snapshot) => {
+        if (snapshot.docs) {
+          const coursesData = snapshot.docs.map(doc => {
+            const courseData = doc.data();
+            return {
+              id: doc.id,
+              name: courseData.name || 'Unnamed Course',
+              institutionId: courseData.institutionId || 'unknown',
+              institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
+              faculty: courseData.faculty || 'General Studies',
+              duration: courseData.duration || 'Not specified',
+              fee: courseData.fee || 0,
+              requirements: courseData.requirements || 'None',
+              currentApplications: courseData.currentApplications || 0,
+              capacity: courseData.capacity || 100,
+              ...courseData
+            };
+          });
+          console.log('📚 Courses listener updated:', coursesData.length, 'courses');
+          setAvailableCourses(coursesData);
+        }
+      });
+      return true;
+    } catch (error) {
+      console.error('Error setting up courses listener:', error);
+      return false;
+    }
+  };
+
   // Fallback function to load data manually if real-time listeners fail
   const loadDataManually = async (uid) => {
     try {
@@ -178,7 +210,17 @@ const StudentDashboard = () => {
         id: doc.id,
         ...doc.data()
       }));
+      console.log('📚 Manual courses loaded:', manualCourses.length);
       setAvailableCourses(manualCourses);
+
+      // Load available jobs manually
+      const jobsQuery = query(collection(db, 'jobs'));
+      const jobsSnapshot = await getDocs(jobsQuery);
+      const manualJobs = jobsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAvailableJobs(manualJobs);
 
       // Load job applications manually
       const jobAppsQuery = query(
@@ -204,9 +246,19 @@ const StudentDashboard = () => {
       }));
       setNotifications(manualNotifications);
 
+      // Load job matches
+      try {
+        const matches = await jobsService.getJobMatches(uid);
+        setJobMatches(matches);
+      } catch (error) {
+        console.error('Error loading job matches:', error);
+        setJobMatches([]);
+      }
+
       console.log('✅ Manual data loaded:', {
         applications: manualApplications.length,
         courses: manualCourses.length,
+        jobs: manualJobs.length,
         jobApps: manualJobApps.length,
         notifications: manualNotifications.length
       });
@@ -261,27 +313,7 @@ const StudentDashboard = () => {
           });
 
           // Courses listener
-          coursesUnsubscribe.current = coursesService.getAvailableCourses((snapshot) => {
-            if (snapshot.docs) {
-              const coursesData = snapshot.docs.map(doc => {
-                const courseData = doc.data();
-                return {
-                  id: doc.id,
-                  name: courseData.name || 'Unnamed Course',
-                  institutionId: courseData.institutionId || 'unknown',
-                  institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
-                  faculty: courseData.faculty || 'General Studies',
-                  duration: courseData.duration || 'Not specified',
-                  fee: courseData.fee || 0,
-                  requirements: courseData.requirements || 'None',
-                  currentApplications: courseData.currentApplications || 0,
-                  capacity: courseData.capacity || 100,
-                  ...courseData
-                };
-              });
-              setAvailableCourses(coursesData);
-            }
-          });
+          const coursesListenerSuccess = setupCourseListener();
 
           // Job applications listener
           jobApplicationsUnsubscribe.current = jobApplicationsService.getStudentJobApplications(uid, (snapshot) => {
@@ -314,7 +346,7 @@ const StudentDashboard = () => {
             setJobMatches([]);
           }
 
-          return true;
+          return coursesListenerSuccess;
         } catch (error) {
           console.error('Error setting up listeners:', error);
           return false;
@@ -346,13 +378,34 @@ const StudentDashboard = () => {
     
     try {
       if (studentId) {
+        console.log('🔄 Starting manual refresh...');
+        
+        // Clean up existing course listener first to avoid conflicts
+        if (coursesUnsubscribe.current) {
+          coursesUnsubscribe.current();
+          coursesUnsubscribe.current = null;
+        }
+        
         // Force reload all data
-        await loadDataManually(studentId);
-        showSnackbar('Data refreshed successfully', 'success');
+        const success = await loadDataManually(studentId);
+        
+        // Re-establish course listener after manual load
+        setTimeout(() => {
+          setupCourseListener();
+        }, 500);
+        
+        if (success) {
+          showSnackbar('Data refreshed successfully', 'success');
+          console.log('✅ Refresh completed successfully');
+        } else {
+          showSnackbar('Partial data refresh completed', 'warning');
+        }
+      } else {
+        showSnackbar('No student ID found', 'error');
       }
     } catch (error) {
-      console.error('Error refreshing data:', error);
-      showSnackbar('Error refreshing data', 'error');
+      console.error('❌ Error refreshing data:', error);
+      showSnackbar('Error refreshing data: ' + error.message, 'error');
     } finally {
       setRefreshing(false);
     }
@@ -786,6 +839,23 @@ const StudentDashboard = () => {
           >
             Edit Profile
           </Button>
+          {/* Debug button for testing courses load */}
+          <Button 
+            variant="outlined" 
+            size="small"
+            onClick={async () => {
+              const coursesQuery = query(collection(db, 'courses'));
+              const coursesSnapshot = await getDocs(coursesQuery);
+              const courses = coursesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              console.log('Direct courses query:', courses);
+              setAvailableCourses(courses);
+            }}
+          >
+            Test Courses
+          </Button>
         </Box>
       </Box>
 
@@ -963,6 +1033,16 @@ const StudentDashboard = () => {
           <Typography variant="h6" gutterBottom>
             Available Courses ({availableCourses.length})
           </Typography>
+          
+          {/* Debug info */}
+          <Box sx={{ mb: 2, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+            <Typography variant="caption" color="textSecondary">
+              Debug: {availableCourses.length} courses loaded | 
+              Data loaded: {dataLoaded ? 'Yes' : 'No'} | 
+              Refreshing: {refreshing ? 'Yes' : 'No'}
+            </Typography>
+          </Box>
+
           {availableCourses.length === 0 ? (
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -973,6 +1053,13 @@ const StudentDashboard = () => {
                 <Typography variant="body2" color="textSecondary">
                   Check back later for new course offerings.
                 </Typography>
+                <Button 
+                  variant="contained" 
+                  sx={{ mt: 2 }}
+                  onClick={handleRefreshData}
+                >
+                  Refresh Courses
+                </Button>
               </CardContent>
             </Card>
           ) : (
