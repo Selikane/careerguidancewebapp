@@ -27,7 +27,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  alpha
 } from '@mui/material';
 import {
   School,
@@ -53,8 +54,16 @@ import {
   notificationsService,
   demoStudentService
 } from '../services/studentService';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+
+// Color scheme matching the home page
+const primaryColor = '#000000';
+const secondaryColor = '#333333';
+const accentColor = '#FF6B35';
+const backgroundColor = '#FFFFFF';
+const lightGray = '#f5f5f5';
+const mediumGray = '#e0e0e0';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -154,39 +163,95 @@ const StudentDashboard = () => {
     };
   }, [user]);
 
-  // Setup course listener separately
-  const setupCourseListener = () => {
+  // Improved function to load courses with better data processing
+  const loadCoursesData = async () => {
     try {
-      coursesUnsubscribe.current = coursesService.getAvailableCourses((snapshot) => {
-        if (snapshot.docs) {
-          const coursesData = snapshot.docs.map(doc => {
-            const courseData = doc.data();
-            return {
-              id: doc.id,
-              name: courseData.name || 'Unnamed Course',
-              institutionId: courseData.institutionId || 'unknown',
-              institutionName: courseData.institutionName || courseData.institutionId || 'Unknown Institution',
-              faculty: courseData.faculty || 'General Studies',
-              duration: courseData.duration || 'Not specified',
-              fee: courseData.fee || 0,
-              requirements: courseData.requirements || 'None',
-              currentApplications: courseData.currentApplications || 0,
-              capacity: courseData.capacity || 100,
-              ...courseData
-            };
-          });
-          console.log('📚 Courses listener updated:', coursesData.length, 'courses');
-          setAvailableCourses(coursesData);
+      console.log('🔄 Loading courses data...');
+      
+      // Method 1: Try through coursesService first
+      try {
+        const coursesData = await coursesService.getAvailableCourses();
+        if (coursesData && coursesData.length > 0) {
+          console.log('✅ Courses loaded via service:', coursesData.length);
+          const processedCourses = coursesData.map(course => ({
+            id: course.id,
+            name: course.name || course.title || 'Unnamed Course',
+            institutionId: course.institutionId || 'unknown',
+            institutionName: course.institutionName || 'Unknown Institution',
+            faculty: course.faculty || course.department || 'General Studies',
+            duration: course.duration || course.courseDuration || 'Not specified',
+            fee: course.fee || course.tuition || 0,
+            requirements: course.requirements || course.prerequisites || 'None specified',
+            description: course.description || course.courseDescription || '',
+            currentApplications: course.currentApplications || course.applicationsCount || 0,
+            capacity: course.capacity || course.maxCapacity || 100,
+            status: course.status || 'active',
+            ...course
+          }));
+          return processedCourses;
         }
-      });
-      return true;
+      } catch (serviceError) {
+        console.log('⚠️ Courses service failed, trying direct Firestore...', serviceError);
+      }
+
+      // Method 2: Direct Firestore query
+      const coursesQuery = query(collection(db, 'courses'));
+      const coursesSnapshot = await getDocs(coursesQuery);
+      
+      if (coursesSnapshot.empty) {
+        console.log('📭 No courses found in Firestore');
+        return [];
+      }
+
+      const coursesData = [];
+      
+      for (const doc of coursesSnapshot.docs) {
+        const courseData = doc.data();
+        
+        // Get institution name if available
+        let institutionName = 'Unknown Institution';
+        if (courseData.institutionId) {
+          try {
+            const institutionDoc = await getDoc(doc(db, 'institutions', courseData.institutionId));
+            if (institutionDoc.exists()) {
+              institutionName = institutionDoc.data().name || institutionDoc.data().institutionName || 'Unknown Institution';
+            }
+          } catch (error) {
+            console.log('⚠️ Could not fetch institution name for course:', doc.id);
+          }
+        }
+
+        const processedCourse = {
+          id: doc.id,
+          name: courseData.name || courseData.title || 'Unnamed Course',
+          institutionId: courseData.institutionId || 'unknown',
+          institutionName: courseData.institutionName || institutionName,
+          faculty: courseData.faculty || courseData.department || 'General Studies',
+          duration: courseData.duration || courseData.courseDuration || 'Not specified',
+          fee: courseData.fee || courseData.tuition || 0,
+          requirements: courseData.requirements || courseData.prerequisites || 'None specified',
+          description: courseData.description || courseData.courseDescription || '',
+          currentApplications: courseData.currentApplications || courseData.applicationsCount || 0,
+          capacity: courseData.capacity || courseData.maxCapacity || 100,
+          status: courseData.status || 'active',
+          ...courseData
+        };
+
+        // Only include active courses
+        if (processedCourse.status === 'active' || !processedCourse.status) {
+          coursesData.push(processedCourse);
+        }
+      }
+
+      console.log('✅ Courses processed:', coursesData.length);
+      return coursesData;
     } catch (error) {
-      console.error('Error setting up courses listener:', error);
-      return false;
+      console.error('❌ Error loading courses:', error);
+      return [];
     }
   };
 
-  // Fallback function to load data manually if real-time listeners fail
+  // Enhanced fallback function to load data manually
   const loadDataManually = async (uid) => {
     try {
       console.log('🔄 Loading data manually for:', uid);
@@ -203,24 +268,9 @@ const StudentDashboard = () => {
       }));
       setApplications(manualApplications);
 
-      // Load courses manually
-      const coursesQuery = query(collection(db, 'courses'));
-      const coursesSnapshot = await getDocs(coursesQuery);
-      const manualCourses = coursesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      console.log('📚 Manual courses loaded:', manualCourses.length);
+      // Load courses using improved function
+      const manualCourses = await loadCoursesData();
       setAvailableCourses(manualCourses);
-
-      // Load available jobs manually
-      const jobsQuery = query(collection(db, 'jobs'));
-      const jobsSnapshot = await getDocs(jobsQuery);
-      const manualJobs = jobsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAvailableJobs(manualJobs);
 
       // Load job applications manually
       const jobAppsQuery = query(
@@ -258,9 +308,9 @@ const StudentDashboard = () => {
       console.log('✅ Manual data loaded:', {
         applications: manualApplications.length,
         courses: manualCourses.length,
-        jobs: manualJobs.length,
         jobApps: manualJobApps.length,
-        notifications: manualNotifications.length
+        notifications: manualNotifications.length,
+        jobMatches: jobMatches.length
       });
 
       return true;
@@ -298,7 +348,7 @@ const StudentDashboard = () => {
         });
       });
 
-      // Set up real-time listeners with error handling
+      // Set up real-time listeners with enhanced error handling
       const setupListeners = async () => {
         try {
           // Applications listener
@@ -312,8 +362,39 @@ const StudentDashboard = () => {
             }
           });
 
-          // Courses listener
-          const coursesListenerSuccess = setupCourseListener();
+          // Enhanced Courses listener with better data processing
+          try {
+            coursesUnsubscribe.current = coursesService.getAvailableCourses((snapshot) => {
+              if (snapshot.docs) {
+                const coursesData = snapshot.docs.map(doc => {
+                  const courseData = doc.data();
+                  return {
+                    id: doc.id,
+                    name: courseData.name || courseData.title || 'Unnamed Course',
+                    institutionId: courseData.institutionId || 'unknown',
+                    institutionName: courseData.institutionName || 'Unknown Institution',
+                    faculty: courseData.faculty || courseData.department || 'General Studies',
+                    duration: courseData.duration || courseData.courseDuration || 'Not specified',
+                    fee: courseData.fee || courseData.tuition || 0,
+                    requirements: courseData.requirements || courseData.prerequisites || 'None',
+                    description: courseData.description || '',
+                    currentApplications: courseData.currentApplications || courseData.applicationsCount || 0,
+                    capacity: courseData.capacity || courseData.maxCapacity || 100,
+                    status: courseData.status || 'active',
+                    ...courseData
+                  };
+                }).filter(course => course.status === 'active' || !course.status);
+                
+                setAvailableCourses(coursesData);
+                console.log('✅ Courses listener loaded:', coursesData.length, 'courses');
+              }
+            });
+          } catch (coursesError) {
+            console.error('❌ Courses listener failed, loading manually:', coursesError);
+            // Load courses manually if listener fails
+            const manualCourses = await loadCoursesData();
+            setAvailableCourses(manualCourses);
+          }
 
           // Job applications listener
           jobApplicationsUnsubscribe.current = jobApplicationsService.getStudentJobApplications(uid, (snapshot) => {
@@ -346,7 +427,7 @@ const StudentDashboard = () => {
             setJobMatches([]);
           }
 
-          return coursesListenerSuccess;
+          return true;
         } catch (error) {
           console.error('Error setting up listeners:', error);
           return false;
@@ -355,9 +436,9 @@ const StudentDashboard = () => {
 
       const listenersSetup = await setupListeners();
 
-      // If listeners fail, try manual loading
-      if (!listenersSetup) {
-        console.log('🔄 Listeners failed, trying manual load...');
+      // If listeners fail or no courses loaded, try manual loading
+      if (!listenersSetup || availableCourses.length === 0) {
+        console.log('🔄 Listeners failed or no courses, trying manual load...');
         await loadDataManually(uid);
       }
 
@@ -378,34 +459,13 @@ const StudentDashboard = () => {
     
     try {
       if (studentId) {
-        console.log('🔄 Starting manual refresh...');
-        
-        // Clean up existing course listener first to avoid conflicts
-        if (coursesUnsubscribe.current) {
-          coursesUnsubscribe.current();
-          coursesUnsubscribe.current = null;
-        }
-        
-        // Force reload all data
-        const success = await loadDataManually(studentId);
-        
-        // Re-establish course listener after manual load
-        setTimeout(() => {
-          setupCourseListener();
-        }, 500);
-        
-        if (success) {
-          showSnackbar('Data refreshed successfully', 'success');
-          console.log('✅ Refresh completed successfully');
-        } else {
-          showSnackbar('Partial data refresh completed', 'warning');
-        }
-      } else {
-        showSnackbar('No student ID found', 'error');
+        // Force reload all data, especially courses
+        await loadDataManually(studentId);
+        showSnackbar('Data refreshed successfully', 'success');
       }
     } catch (error) {
-      console.error('❌ Error refreshing data:', error);
-      showSnackbar('Error refreshing data: ' + error.message, 'error');
+      console.error('Error refreshing data:', error);
+      showSnackbar('Error refreshing data', 'error');
     } finally {
       setRefreshing(false);
     }
@@ -607,19 +667,30 @@ const StudentDashboard = () => {
   if (initializing) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
-        <Card>
+        <Card sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <School sx={{ fontSize: 64, color: 'primary.main', mb: 3 }} />
-            <Typography variant="h4" gutterBottom>
+            <School sx={{ fontSize: 64, color: accentColor, mb: 3 }} />
+            <Typography variant="h4" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
               Welcome to Student Dashboard
             </Typography>
-            <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
+            <Typography variant="body1" sx={{ color: secondaryColor, mb: 4, fontWeight: '300' }}>
               Let's set up your student profile to get started with course and job applications
             </Typography>
             <Button 
               variant="contained" 
               size="large" 
               onClick={handleInitializeProfile}
+              sx={{
+                backgroundColor: accentColor,
+                color: 'white',
+                borderRadius: '25px',
+                px: 4,
+                py: 1.5,
+                fontWeight: '600',
+                '&:hover': {
+                  backgroundColor: '#E55A2B'
+                }
+              }}
             >
               Create Student Profile
             </Button>
@@ -632,8 +703,8 @@ const StudentDashboard = () => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px" flexDirection="column">
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>
+        <CircularProgress sx={{ color: accentColor }} size={60} />
+        <Typography variant="h6" sx={{ mt: 2, color: secondaryColor, fontWeight: '300' }}>
           Loading Student Dashboard...
         </Typography>
       </Box>
@@ -648,64 +719,122 @@ const StudentDashboard = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ borderRadius: '8px' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
 
       {/* Apply for Course Dialog */}
-      <Dialog open={applyCourseDialog.open} onClose={() => setApplyCourseDialog({ open: false, course: null })} maxWidth="sm" fullWidth>
-        <DialogTitle>Apply for Course</DialogTitle>
+      <Dialog 
+        open={applyCourseDialog.open} 
+        onClose={() => setApplyCourseDialog({ open: false, course: null })} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
+          Apply for Course
+        </DialogTitle>
         <DialogContent>
           {applyCourseDialog.course && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6">{applyCourseDialog.course.name}</Typography>
-              <Typography color="textSecondary">{applyCourseDialog.course.institutionName}</Typography>
-              <Typography variant="body2" sx={{ mt: 2 }}>
+              <Typography variant="h6" sx={{ color: primaryColor }}>{applyCourseDialog.course.name}</Typography>
+              <Typography sx={{ color: secondaryColor }}>{applyCourseDialog.course.institutionName}</Typography>
+              <Typography variant="body2" sx={{ mt: 2, color: secondaryColor }}>
                 Faculty: {applyCourseDialog.course.faculty}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: secondaryColor }}>
                 Duration: {applyCourseDialog.course.duration}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: secondaryColor }}>
                 Fee: ${applyCourseDialog.course.fee}
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApplyCourseDialog({ open: false, course: null })}>Cancel</Button>
-          <Button onClick={handleApplyForCourse} variant="contained">
+          <Button 
+            onClick={() => setApplyCourseDialog({ open: false, course: null })}
+            sx={{ color: secondaryColor }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleApplyForCourse} 
+            variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
+          >
             Apply Now
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Apply for Job Dialog */}
-      <Dialog open={applyJobDialog.open} onClose={() => setApplyJobDialog({ open: false, job: null })} maxWidth="sm" fullWidth>
-        <DialogTitle>Apply for Job</DialogTitle>
+      <Dialog 
+        open={applyJobDialog.open} 
+        onClose={() => setApplyJobDialog({ open: false, job: null })} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
+          Apply for Job
+        </DialogTitle>
         <DialogContent>
           {applyJobDialog.job && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6">{applyJobDialog.job.title}</Typography>
-              <Typography color="textSecondary">{applyJobDialog.job.companyName}</Typography>
-              <Typography variant="body2" sx={{ mt: 2 }}>
+              <Typography variant="h6" sx={{ color: primaryColor }}>{applyJobDialog.job.title}</Typography>
+              <Typography sx={{ color: secondaryColor }}>{applyJobDialog.job.companyName}</Typography>
+              <Typography variant="body2" sx={{ mt: 2, color: secondaryColor }}>
                 {applyJobDialog.job.description}
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApplyJobDialog({ open: false, job: null })}>Cancel</Button>
-          <Button onClick={handleApplyForJob} variant="contained">
+          <Button 
+            onClick={() => setApplyJobDialog({ open: false, job: null })}
+            sx={{ color: secondaryColor }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleApplyForJob} 
+            variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
+          >
             Apply Now
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Profile Dialog */}
-      <Dialog open={profileDialog.open} onClose={() => setProfileDialog({ open: false })} maxWidth="md" fullWidth>
-        <DialogTitle>Edit Student Profile</DialogTitle>
+      <Dialog 
+        open={profileDialog.open} 
+        onClose={() => setProfileDialog({ open: false })} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
+          Edit Student Profile
+        </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
@@ -714,6 +843,11 @@ const StudentDashboard = () => {
                 label="First Name"
                 value={profileForm.firstName}
                 onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -722,6 +856,11 @@ const StudentDashboard = () => {
                 label="Last Name"
                 value={profileForm.lastName}
                 onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -730,6 +869,11 @@ const StudentDashboard = () => {
                 label="Phone"
                 value={profileForm.phone}
                 onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -739,6 +883,9 @@ const StudentDashboard = () => {
                   value={profileForm.educationLevel}
                   label="Education Level"
                   onChange={(e) => setProfileForm({ ...profileForm, educationLevel: e.target.value })}
+                  sx={{
+                    borderRadius: '8px'
+                  }}
                 >
                   {educationLevels.map((level) => (
                     <MenuItem key={level} value={level}>
@@ -754,6 +901,11 @@ const StudentDashboard = () => {
                 label="Address"
                 value={profileForm.address}
                 onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -765,6 +917,9 @@ const StudentDashboard = () => {
                   label="Skills"
                   onChange={(e) => setProfileForm({ ...profileForm, skills: e.target.value })}
                   renderValue={(selected) => selected.join(', ')}
+                  sx={{
+                    borderRadius: '8px'
+                  }}
                 >
                   {skillsList.map((skill) => (
                     <MenuItem key={skill} value={skill}>
@@ -777,16 +932,41 @@ const StudentDashboard = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProfileDialog({ open: false })}>Cancel</Button>
-          <Button onClick={handleUpdateProfile} variant="contained">
+          <Button 
+            onClick={() => setProfileDialog({ open: false })}
+            sx={{ color: secondaryColor }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleUpdateProfile} 
+            variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
+          >
             Update Profile
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Upload Document Dialog */}
-      <Dialog open={uploadDialog.open} onClose={() => setUploadDialog({ open: false, documentType: '' })} maxWidth="sm" fullWidth>
-        <DialogTitle>Upload {uploadDialog.documentType?.replace('_', ' ')}</DialogTitle>
+      <Dialog 
+        open={uploadDialog.open} 
+        onClose={() => setUploadDialog({ open: false, documentType: '' })} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
+          Upload {uploadDialog.documentType?.replace('_', ' ')}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <input
@@ -795,14 +975,32 @@ const StudentDashboard = () => {
               onChange={(e) => setUploadFile(e.target.files[0])}
               style={{ marginBottom: '16px' }}
             />
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" sx={{ color: secondaryColor }}>
               Supported formats: PDF, DOC, DOCX, JPG, JPEG, PNG
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUploadDialog({ open: false, documentType: '' })}>Cancel</Button>
-          <Button onClick={handleUploadDocument} variant="contained" disabled={!uploadFile}>
+          <Button 
+            onClick={() => setUploadDialog({ open: false, documentType: '' })}
+            sx={{ color: secondaryColor }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleUploadDocument} 
+            variant="contained" 
+            disabled={!uploadFile}
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
+          >
             Upload
           </Button>
         </DialogActions>
@@ -811,14 +1009,14 @@ const StudentDashboard = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
             Student Dashboard
           </Typography>
-          <Typography variant="h6" color="textSecondary">
+          <Typography variant="h6" sx={{ color: secondaryColor, fontWeight: '300' }}>
             Welcome back, {studentProfile?.firstName || user?.email}
           </Typography>
           {!dataLoaded && (
-            <Typography variant="caption" color="warning.main">
+            <Typography variant="caption" sx={{ color: accentColor }}>
               Data loading... If this persists, click Refresh
             </Typography>
           )}
@@ -829,6 +1027,15 @@ const StudentDashboard = () => {
             startIcon={<Refresh />}
             onClick={handleRefreshData}
             disabled={refreshing}
+            sx={{
+              borderColor: accentColor,
+              color: accentColor,
+              borderRadius: '25px',
+              '&:hover': {
+                borderColor: '#E55A2B',
+                backgroundColor: alpha(accentColor, 0.1)
+              }
+            }}
           >
             {refreshing ? 'Refreshing...' : 'Refresh Data'}
           </Button>
@@ -836,75 +1043,39 @@ const StudentDashboard = () => {
             variant="outlined" 
             startIcon={<Edit />}
             onClick={() => setProfileDialog({ open: true })}
+            sx={{
+              borderColor: primaryColor,
+              color: primaryColor,
+              borderRadius: '25px',
+              '&:hover': {
+                borderColor: accentColor,
+                color: accentColor,
+                backgroundColor: alpha(accentColor, 0.1)
+              }
+            }}
           >
             Edit Profile
           </Button>
         </Box>
       </Box>
 
-      {/* Quick Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <School sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{applications.length}</Typography>
-                  <Typography variant="body2">Course Applications</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Work sx={{ fontSize: 40, color: 'secondary.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{jobApplications.length}</Typography>
-                  <Typography variant="body2">Job Applications</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Description sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">
-                    {applications.filter(app => app.status === 'admitted').length}
-                  </Typography>
-                  <Typography variant="body2">Admissions</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Notifications sx={{ fontSize: 40, color: 'warning.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">
-                    {notifications.filter(n => !n.read).length}
-                  </Typography>
-                  <Typography variant="body2">Unread Notifications</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
       {/* Main Content Tabs */}
-      <Paper>
-        <Tabs value={tabValue} onChange={handleTabChange}>
+      <Paper sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          sx={{
+            '& .MuiTab-root': {
+              color: secondaryColor,
+              '&.Mui-selected': {
+                color: accentColor,
+              }
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: accentColor,
+            }
+          }}
+        >
           <Tab label="My Applications" icon={<School />} iconPosition="start" />
           <Tab label="Available Courses" icon={<Add />} iconPosition="start" />
           <Tab label="Job Matches" icon={<Work />} iconPosition="start" />
@@ -914,23 +1085,32 @@ const StudentDashboard = () => {
 
         {/* My Applications Tab */}
         <TabPanel value={tabValue} index={0}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
             My Course Applications ({applications.length})
           </Typography>
           
           {applications.length === 0 ? (
-            <Card>
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <School sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <School sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Applications Yet
                 </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ color: secondaryColor, mb: 3, fontWeight: '300' }}>
                   Start by applying to available courses.
                 </Typography>
                 <Button 
                   variant="contained" 
                   onClick={() => setTabValue(1)}
+                  sx={{
+                    backgroundColor: accentColor,
+                    color: 'white',
+                    borderRadius: '25px',
+                    px: 4,
+                    '&:hover': {
+                      backgroundColor: '#E55A2B'
+                    }
+                  }}
                 >
                   Browse Courses
                 </Button>
@@ -939,30 +1119,30 @@ const StudentDashboard = () => {
           ) : (
             <List>
               {applications.map((app) => (
-                <ListItem key={app.id} divider>
+                <ListItem key={app.id} divider sx={{ py: 2 }}>
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="h6" component="div">
+                        <Typography variant="h6" component="div" sx={{ color: primaryColor }}>
                           {app.courseName}
                         </Typography>
-                        <Typography variant="body2" color="textSecondary">
+                        <Typography variant="body2" sx={{ color: secondaryColor }}>
                           ${app.fee || 0}
                         </Typography>
                       </Box>
                     }
                     secondary={
                       <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2" component="div">
+                        <Typography variant="body2" component="div" sx={{ color: secondaryColor }}>
                           <strong>Institution:</strong> {app.institutionName}
                         </Typography>
-                        <Typography variant="body2" component="div">
+                        <Typography variant="body2" component="div" sx={{ color: secondaryColor }}>
                           <strong>Faculty:</strong> {app.faculty}
                         </Typography>
-                        <Typography variant="body2" component="div">
+                        <Typography variant="body2" component="div" sx={{ color: secondaryColor }}>
                           <strong>Applied:</strong> {formatFirestoreDate(app.applicationDate)}
                         </Typography>
-                        <Typography variant="body2" component="div">
+                        <Typography variant="body2" component="div" sx={{ color: secondaryColor }}>
                           <strong>Duration:</strong> {app.duration}
                         </Typography>
                       </Box>
@@ -973,7 +1153,12 @@ const StudentDashboard = () => {
                     {app.status === 'pending' && (
                       <Button 
                         size="small" 
-                        color="error"
+                        sx={{ 
+                          color: accentColor,
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1)
+                          }
+                        }}
                         onClick={() => handleWithdrawApplication(app.id)}
                       >
                         Withdraw
@@ -985,13 +1170,13 @@ const StudentDashboard = () => {
             </List>
           )}
 
-          <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom sx={{ mt: 4, color: primaryColor, fontWeight: '600' }}>
             My Job Applications ({jobApplications.length})
           </Typography>
           {jobApplications.length === 0 ? (
-            <Card variant="outlined">
+            <Card variant="outlined" sx={{ borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" sx={{ color: secondaryColor }}>
                   No job applications yet.
                 </Typography>
               </CardContent>
@@ -999,10 +1184,10 @@ const StudentDashboard = () => {
           ) : (
             <List>
               {jobApplications.map((app) => (
-                <ListItem key={app.id} divider>
+                <ListItem key={app.id} divider sx={{ py: 2 }}>
                   <ListItemText
-                    primary={app.jobTitle}
-                    secondary={`${app.companyName} • Applied: ${formatFirestoreDate(app.applicationDate)}`}
+                    primary={<Typography sx={{ color: primaryColor }}>{app.jobTitle}</Typography>}
+                    secondary={<Typography sx={{ color: secondaryColor }}>{`${app.companyName} • Applied: ${formatFirestoreDate(app.applicationDate)}`}</Typography>}
                   />
                   {getStatusChip(app.status)}
                 </ListItem>
@@ -1013,31 +1198,60 @@ const StudentDashboard = () => {
 
         {/* Available Courses Tab */}
         <TabPanel value={tabValue} index={1}>
-          <Typography variant="h6" gutterBottom>
-            Available Courses ({availableCourses.length})
-          </Typography>
-
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
+              Available Courses ({availableCourses.length})
+            </Typography>
+            <Button 
+              variant="outlined" 
+              startIcon={<Refresh />}
+              onClick={handleRefreshData}
+              disabled={refreshing}
+              size="small"
+              sx={{
+                borderColor: accentColor,
+                color: accentColor,
+                borderRadius: '20px',
+                '&:hover': {
+                  borderColor: '#E55A2B',
+                  backgroundColor: alpha(accentColor, 0.1)
+                }
+              }}
+            >
+              Refresh
+            </Button>
+          </Box>
+          
           {availableCourses.length === 0 ? (
-            <Card>
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <School sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <School sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Courses Available
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Check back later for new course offerings.
+                <Typography variant="body2" sx={{ color: secondaryColor, mb: 3, fontWeight: '300' }}>
+                  Check back later for new course offerings or refresh to load courses.
                 </Typography>
                 <Button 
                   variant="contained" 
-                  sx={{ mt: 2 }}
                   onClick={handleRefreshData}
+                  disabled={refreshing}
+                  sx={{
+                    backgroundColor: accentColor,
+                    color: 'white',
+                    borderRadius: '25px',
+                    px: 4,
+                    '&:hover': {
+                      backgroundColor: '#E55A2B'
+                    }
+                  }}
                 >
-                  Refresh Courses
+                  {refreshing ? 'Loading...' : 'Refresh Courses'}
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
               {availableCourses
                 .filter(course => course.name && course.institutionName)
                 .map((course) => {
@@ -1048,39 +1262,60 @@ const StudentDashboard = () => {
 
                   return (
                     <Grid item xs={12} md={6} key={course.id}>
-                      <Card variant="outlined">
+                      <Card 
+                        variant="outlined" 
+                        sx={{ 
+                          borderRadius: '12px',
+                          border: `1px solid ${mediumGray}`,
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: `0 8px 25px ${alpha(primaryColor, 0.1)}`,
+                            borderColor: accentColor
+                          }
+                        }}
+                      >
                         <CardContent>
-                          <Typography variant="h6" gutterBottom>
+                          <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                             {course.name}
                           </Typography>
-                          <Typography color="textSecondary" gutterBottom>
+                          <Typography sx={{ color: secondaryColor, mb: 1, fontWeight: '300' }}>
                             {course.institutionName} • {course.faculty}
                           </Typography>
-                          <Typography variant="body2" gutterBottom>
+                          <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
                             Duration: {course.duration}
                           </Typography>
-                          <Typography variant="body2" gutterBottom>
+                          <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
                             Fee: ${course.fee}
                           </Typography>
-                          {course.requirements && (
-                            <Typography variant="body2" gutterBottom>
+                          {course.requirements && course.requirements !== 'None specified' && (
+                            <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
                               Requirements: {course.requirements}
                             </Typography>
                           )}
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                            <Typography variant="body2" color="textSecondary">
+                            <Typography variant="body2" sx={{ color: secondaryColor }}>
                               Applications: {course.currentApplications}/{course.capacity}
                             </Typography>
                             <Button
                               variant={alreadyApplied ? "outlined" : "contained"}
                               disabled={alreadyApplied || institutionApplications >= 2}
                               onClick={() => setApplyCourseDialog({ open: true, course })}
+                              sx={{
+                                backgroundColor: alreadyApplied ? mediumGray : accentColor,
+                                color: alreadyApplied ? secondaryColor : 'white',
+                                borderRadius: '25px',
+                                px: 3,
+                                '&:hover': {
+                                  backgroundColor: alreadyApplied ? mediumGray : '#E55A2B'
+                                }
+                              }}
                             >
                               {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply'}
                             </Button>
                           </Box>
                           {institutionApplications >= 2 && (
-                            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                            <Typography variant="caption" sx={{ color: accentColor, mt: 1, display: 'block' }}>
                               Maximum 2 applications per institution
                             </Typography>
                           )}
@@ -1095,54 +1330,82 @@ const StudentDashboard = () => {
 
         {/* Job Matches Tab */}
         <TabPanel value={tabValue} index={2}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
             Recommended Jobs ({jobMatches.length})
           </Typography>
           {jobMatches.length === 0 ? (
-            <Card>
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Work sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Work sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Job Matches Yet
                 </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ color: secondaryColor, mb: 3, fontWeight: '300' }}>
                   Complete your profile to get better job recommendations.
                 </Typography>
                 <Button 
                   variant="contained" 
                   onClick={() => setProfileDialog({ open: true })}
+                  sx={{
+                    backgroundColor: accentColor,
+                    color: 'white',
+                    borderRadius: '25px',
+                    px: 4,
+                    '&:hover': {
+                      backgroundColor: '#E55A2B'
+                    }
+                  }}
                 >
                   Update Profile
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
               {jobMatches.map((job) => {
                 const alreadyApplied = jobApplications.some(app => app.jobId === job.id);
                 
                 return (
                   <Grid item xs={12} md={6} key={job.id}>
-                    <Card variant="outlined">
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        borderRadius: '12px',
+                        border: `1px solid ${mediumGray}`,
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: `0 8px 25px ${alpha(primaryColor, 0.1)}`,
+                          borderColor: accentColor
+                        }
+                      }}
+                    >
                       <CardContent>
-                        <Typography variant="h6" gutterBottom>
+                        <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                           {job.title}
                         </Typography>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography sx={{ color: secondaryColor, mb: 1, fontWeight: '300' }}>
                           {job.companyName}
                         </Typography>
-                        <Typography variant="body2" gutterBottom>
+                        <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
                           {job.location} • {job.type}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                          <TrendingUp fontSize="small" />
-                          <Typography variant="body2">Match Score: {job.matchScore}%</Typography>
+                          <TrendingUp fontSize="small" sx={{ color: accentColor }} />
+                          <Typography variant="body2" sx={{ color: secondaryColor }}>Match Score: {job.matchScore}%</Typography>
                         </Box>
                         <LinearProgress 
                           variant="determinate" 
                           value={job.matchScore} 
-                          sx={{ mb: 2 }}
-                          color={job.matchScore > 80 ? 'success' : job.matchScore > 60 ? 'warning' : 'error'}
+                          sx={{ 
+                            mb: 2,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: lightGray,
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: job.matchScore > 80 ? accentColor : job.matchScore > 60 ? '#FFA726' : '#EF5350'
+                            }
+                          }}
                         />
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <Button 
@@ -1150,10 +1413,32 @@ const StudentDashboard = () => {
                             size="small"
                             disabled={alreadyApplied}
                             onClick={() => setApplyJobDialog({ open: true, job })}
+                            sx={{
+                              backgroundColor: alreadyApplied ? 'transparent' : accentColor,
+                              color: alreadyApplied ? accentColor : 'white',
+                              borderColor: accentColor,
+                              borderRadius: '20px',
+                              '&:hover': {
+                                backgroundColor: alreadyApplied ? alpha(accentColor, 0.1) : '#E55A2B'
+                              }
+                            }}
                           >
                             {alreadyApplied ? 'Applied' : 'Apply Now'}
                           </Button>
-                          <Button variant="outlined" size="small">
+                          <Button 
+                            variant="outlined" 
+                            size="small"
+                            sx={{
+                              borderColor: primaryColor,
+                              color: primaryColor,
+                              borderRadius: '20px',
+                              '&:hover': {
+                                borderColor: accentColor,
+                                color: accentColor,
+                                backgroundColor: alpha(accentColor, 0.1)
+                              }
+                            }}
+                          >
                             View Details
                           </Button>
                         </Box>
@@ -1168,17 +1453,17 @@ const StudentDashboard = () => {
 
         {/* Notifications Tab */}
         <TabPanel value={tabValue} index={3}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
             Notifications ({notifications.length})
           </Typography>
           {notifications.length === 0 ? (
-            <Card>
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Notifications sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Notifications sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Notifications
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" sx={{ color: secondaryColor, fontWeight: '300' }}>
                   You're all caught up! New notifications will appear here.
                 </Typography>
               </CardContent>
@@ -1190,14 +1475,17 @@ const StudentDashboard = () => {
                   key={notification.id} 
                   divider
                   sx={{ 
-                    backgroundColor: notification.read ? 'transparent' : 'action.hover',
+                    py: 2,
+                    backgroundColor: notification.read ? 'transparent' : alpha(accentColor, 0.05),
                     borderLeft: notification.read ? 'none' : '4px solid',
-                    borderLeftColor: 'primary.main'
+                    borderLeftColor: accentColor,
+                    borderRadius: '8px',
+                    mb: 1
                   }}
                 >
                   <ListItemText
-                    primary={notification.message}
-                    secondary={formatFirestoreDate(notification.createdAt)}
+                    primary={<Typography sx={{ color: primaryColor }}>{notification.message}</Typography>}
+                    secondary={<Typography sx={{ color: secondaryColor }}>{formatFirestoreDate(notification.createdAt)}</Typography>}
                     sx={{ 
                       opacity: notification.read ? 0.7 : 1,
                     }}
@@ -1205,10 +1493,24 @@ const StudentDashboard = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {!notification.read && (
                       <>
-                        <Chip label="New" color="primary" size="small" />
+                        <Chip 
+                          label="New" 
+                          size="small" 
+                          sx={{ 
+                            backgroundColor: accentColor,
+                            color: 'white',
+                            fontWeight: '600'
+                          }}
+                        />
                         <Button 
                           size="small" 
                           onClick={() => handleMarkAsRead(notification.id)}
+                          sx={{
+                            color: accentColor,
+                            '&:hover': {
+                              backgroundColor: alpha(accentColor, 0.1)
+                            }
+                          }}
                         >
                           Mark Read
                         </Button>
@@ -1223,26 +1525,36 @@ const StudentDashboard = () => {
 
         {/* Profile & Documents Tab */}
         <TabPanel value={tabValue} index={4}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
             Student Profile
           </Typography>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                     Personal Information
                   </Typography>
-                  <Typography><strong>Name:</strong> {studentProfile?.firstName} {studentProfile?.lastName}</Typography>
-                  <Typography><strong>Email:</strong> {user?.email}</Typography>
-                  <Typography><strong>Phone:</strong> {studentProfile?.phone || 'Not set'}</Typography>
-                  <Typography><strong>Address:</strong> {studentProfile?.address || 'Not set'}</Typography>
-                  <Typography><strong>Education Level:</strong> {studentProfile?.educationLevel ? studentProfile.educationLevel.replace('_', ' ').toUpperCase() : 'Not set'}</Typography>
-                  <Typography><strong>Skills:</strong> {studentProfile?.skills?.join(', ') || 'None'}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Name:</strong> {studentProfile?.firstName} {studentProfile?.lastName}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Email:</strong> {user?.email}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Phone:</strong> {studentProfile?.phone || 'Not set'}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Address:</strong> {studentProfile?.address || 'Not set'}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Education Level:</strong> {studentProfile?.educationLevel ? studentProfile.educationLevel.replace('_', ' ').toUpperCase() : 'Not set'}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 2 }}><strong>Skills:</strong> {studentProfile?.skills?.join(', ') || 'None'}</Typography>
                   <Button 
                     variant="outlined" 
                     startIcon={<Edit />}
-                    sx={{ mt: 2 }}
+                    sx={{ 
+                      mt: 1,
+                      borderColor: primaryColor,
+                      color: primaryColor,
+                      borderRadius: '25px',
+                      '&:hover': {
+                        borderColor: accentColor,
+                        color: accentColor,
+                        backgroundColor: alpha(accentColor, 0.1)
+                      }
+                    }}
                     onClick={() => setProfileDialog({ open: true })}
                   >
                     Edit Profile
@@ -1251,25 +1563,31 @@ const StudentDashboard = () => {
               </Card>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                     Academic Documents
                   </Typography>
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                  <Typography variant="body2" sx={{ color: secondaryColor, mb: 2, fontWeight: '300' }}>
                     Upload your documents to improve your profile and job matching
                   </Typography>
                   
                   <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {documentTypes.map((docType) => (
-                      <Box key={docType} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2">
+                      <Box key={docType} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+                        <Typography variant="body2" sx={{ color: secondaryColor }}>
                           {docType.replace('_', ' ').toUpperCase()}
                         </Typography>
                         <Button
                           size="small"
                           startIcon={<Upload />}
                           onClick={() => setUploadDialog({ open: true, documentType: docType })}
+                          sx={{
+                            color: accentColor,
+                            '&:hover': {
+                              backgroundColor: alpha(accentColor, 0.1)
+                            }
+                          }}
                         >
                           Upload
                         </Button>
@@ -1279,12 +1597,12 @@ const StudentDashboard = () => {
 
                   {studentProfile?.documents && Object.keys(studentProfile.documents).length > 0 && (
                     <Box sx={{ mt: 3 }}>
-                      <Typography variant="subtitle2" gutterBottom>
+                      <Typography variant="subtitle2" gutterBottom sx={{ color: primaryColor }}>
                         Uploaded Documents:
                       </Typography>
                       {Object.entries(studentProfile.documents).map(([docType, docInfo]) => (
-                        <Box key={docType} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="body2">
+                        <Box key={docType} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, py: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: secondaryColor }}>
                             {docType.replace('_', ' ').toUpperCase()}
                           </Typography>
                           <Button 
@@ -1292,6 +1610,12 @@ const StudentDashboard = () => {
                             href={docInfo.url} 
                             target="_blank"
                             rel="noopener noreferrer"
+                            sx={{
+                              color: accentColor,
+                              '&:hover': {
+                                backgroundColor: alpha(accentColor, 0.1)
+                              }
+                            }}
                           >
                             View
                           </Button>
