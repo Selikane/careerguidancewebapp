@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useContext } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, AuthContext } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -27,6 +27,41 @@ const theme = createTheme({
   },
 });
 
+// Protected Route Component using useContext
+const ProtectedRoute = ({ children, requiredUserType }) => {
+  const { user, userType, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredUserType && userType !== requiredUserType) {
+    // Redirect to appropriate dashboard based on actual user type
+    switch (userType) {
+      case 'student':
+        return <Navigate to="/student-dashboard" replace />;
+      case 'institution':
+        return <Navigate to="/institution-dashboard" replace />;
+      case 'company':
+        return <Navigate to="/company-dashboard" replace />;
+      case 'admin':
+        return <Navigate to="/admin-dashboard" replace />;
+      default:
+        return <Navigate to="/" replace />;
+    }
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -42,10 +77,49 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/courses" element={<Courses />} />
                 <Route path="/jobs" element={<Jobs />} />
-                <Route path="/student/dashboard" element={<StudentDashboard />} />
-                <Route path="/institution/dashboard" element={<InstitutionDashboard />} />
-                <Route path="/company/dashboard" element={<CompanyDashboard />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                
+                {/* Updated Dashboard Routes - Match what Login component expects */}
+                <Route 
+                  path="/student-dashboard" 
+                  element={
+                    <ProtectedRoute requiredUserType="student">
+                      <StudentDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/institution-dashboard" 
+                  element={
+                    <ProtectedRoute requiredUserType="institution">
+                      <InstitutionDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/company-dashboard" 
+                  element={
+                    <ProtectedRoute requiredUserType="company">
+                      <CompanyDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin-dashboard" 
+                  element={
+                    <ProtectedRoute requiredUserType="admin">
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                {/* Keep old routes as redirects for backward compatibility */}
+                <Route path="/student/dashboard" element={<Navigate to="/student-dashboard" replace />} />
+                <Route path="/institution/dashboard" element={<Navigate to="/institution-dashboard" replace />} />
+                <Route path="/company/dashboard" element={<Navigate to="/company-dashboard" replace />} />
+                <Route path="/admin/dashboard" element={<Navigate to="/admin-dashboard" replace />} />
+
+                {/* Catch all route - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
             <Footer />
