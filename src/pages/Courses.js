@@ -19,7 +19,8 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Snackbar
+  Snackbar,
+  alpha
 } from '@mui/material';
 import { Search, School, LocationOn, People, Login } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
@@ -39,6 +40,14 @@ const Courses = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [loading, setLoading] = useState(false);
+
+  // Color scheme matching the home page
+  const primaryColor = '#000000';
+  const secondaryColor = '#333333';
+  const accentColor = '#FF6B35';
+  const backgroundColor = '#FFFFFF';
+  const lightGray = '#f5f5f5';
+  const mediumGray = '#e0e0e0';
 
   const coursesPerPage = 6;
   const { user, userType } = useContext(AuthContext);
@@ -211,16 +220,36 @@ const Courses = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom align="center">
-        Available Courses
-      </Typography>
-      <Typography variant="h6" color="textSecondary" align="center" sx={{ mb: 4 }}>
-        Discover your path to higher education in Lesotho
-      </Typography>
+      {/* Header Section */}
+      <Box sx={{ textAlign: 'center', mb: 6 }}>
+        <Typography 
+          variant="h3" 
+          component="h1" 
+          gutterBottom 
+          sx={{ 
+            fontWeight: '300',
+            color: primaryColor,
+            letterSpacing: '-0.01em'
+          }}
+        >
+          Available Courses
+        </Typography>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: secondaryColor,
+            fontWeight: '300',
+            maxWidth: '600px',
+            mx: 'auto'
+          }}
+        >
+          Discover your path to higher education in Lesotho with our comprehensive course catalog
+        </Typography>
+      </Box>
 
       {/* Search and Filters */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={2} alignItems="center">
+      <Box sx={{ mb: 6, p: 3, backgroundColor: lightGray, borderRadius: '12px' }}>
+        <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
@@ -228,7 +257,13 @@ const Courses = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                startAdornment: <Search sx={{ mr: 1, color: secondaryColor }} />
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: backgroundColor,
+                  borderRadius: '8px'
+                }
               }}
             />
           </Grid>
@@ -239,6 +274,10 @@ const Courses = () => {
                 value={institutionFilter}
                 label="Institution"
                 onChange={(e) => setInstitutionFilter(e.target.value)}
+                sx={{
+                  backgroundColor: backgroundColor,
+                  borderRadius: '8px'
+                }}
               >
                 <MenuItem value="">All Institutions</MenuItem>
                 {institutions.map((institution) => (
@@ -256,6 +295,10 @@ const Courses = () => {
                 value={facultyFilter}
                 label="Faculty"
                 onChange={(e) => setFacultyFilter(e.target.value)}
+                sx={{
+                  backgroundColor: backgroundColor,
+                  borderRadius: '8px'
+                }}
               >
                 <MenuItem value="">All Faculties</MenuItem>
                 {faculties.map((faculty, index) => (
@@ -270,7 +313,7 @@ const Courses = () => {
       </Box>
 
       {/* Courses Grid */}
-      <Grid container spacing={3}>
+      <Grid container spacing={4}>
         {currentCourses.map((course) => {
           const applicationStatus = getApplicationStatus(course);
           const isNew = isNewCourse(course);
@@ -282,30 +325,39 @@ const Courses = () => {
                 display: 'flex', 
                 flexDirection: 'column',
                 position: 'relative',
-                border: isNew ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                border: `1px solid ${mediumGray}`,
+                borderRadius: '12px',
+                transition: 'all 0.3s ease',
+                backgroundColor: backgroundColor,
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 20px 40px ${alpha(primaryColor, 0.15)}`,
+                  borderColor: accentColor
+                }
               }}>
                 {isNew && (
                   <Chip 
                     label="NEW" 
-                    color="primary" 
                     size="small"
                     sx={{ 
                       position: 'absolute', 
-                      top: 8, 
-                      right: 8,
-                      fontWeight: 'bold'
+                      top: 12, 
+                      right: 12,
+                      fontWeight: 'bold',
+                      backgroundColor: accentColor,
+                      color: 'white'
                     }}
                   />
                 )}
                 
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" component="h2" gutterBottom>
+                <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                  <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: '600', color: primaryColor }}>
                     {course.name}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <School sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2" color="textSecondary">
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <School sx={{ fontSize: 18, mr: 1, color: accentColor }} />
+                    <Typography variant="body2" color={secondaryColor}>
                       {getInstitutionName(course.institutionId)}
                     </Typography>
                   </Box>
@@ -313,40 +365,59 @@ const Courses = () => {
                   <Chip 
                     label={course.faculty} 
                     size="small" 
-                    color="primary" 
-                    variant="outlined"
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      backgroundColor: alpha(accentColor, 0.1),
+                      color: accentColor,
+                      fontWeight: '500',
+                      border: `1px solid ${alpha(accentColor, 0.3)}`
+                    }}
                   />
 
-                  <Typography variant="body2" paragraph>
-                    <strong>Duration:</strong> {course.duration}
-                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: secondaryColor, mb: 1 }}>
+                      <strong>Duration:</strong> {course.duration}
+                    </Typography>
 
-                  <Typography variant="body2" paragraph sx={{ minHeight: '40px' }}>
-                    <strong>Requirements:</strong> {course.requirements || 'Check institution website'}
-                  </Typography>
+                    <Typography variant="body2" sx={{ color: secondaryColor, minHeight: '40px' }}>
+                      <strong>Requirements:</strong> {course.requirements || 'Check institution website'}
+                    </Typography>
+                  </Box>
 
                   {course.description && (
-                    <Typography variant="body2" color="textSecondary" paragraph sx={{ 
+                    <Typography variant="body2" sx={{ 
+                      color: secondaryColor,
                       fontSize: '0.875rem',
                       display: '-webkit-box',
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      mb: 2
                     }}>
                       {course.description}
                     </Typography>
                   )}
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    mb: 3,
+                    p: 2,
+                    backgroundColor: lightGray,
+                    borderRadius: '8px'
+                  }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <People sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
-                      <Typography variant="body2">
+                      <People sx={{ fontSize: 16, mr: 1, color: accentColor }} />
+                      <Typography variant="body2" sx={{ color: secondaryColor }}>
                         {course.currentApplications || 0}/{course.capacity}
                       </Typography>
                     </Box>
                     {course.deadline && (
-                      <Typography variant="body2" color={applicationStatus.status === 'expired' ? 'error' : 'textSecondary'}>
+                      <Typography variant="body2" sx={{ 
+                        color: applicationStatus.status === 'expired' ? accentColor : secondaryColor,
+                        fontWeight: applicationStatus.status === 'expired' ? '600' : '400'
+                      }}>
                         Deadline: {course.deadline?.toDate ? course.deadline.toDate().toLocaleDateString() : 'N/A'}
                       </Typography>
                     )}
@@ -358,6 +429,18 @@ const Courses = () => {
                     onClick={() => handleApply(course)}
                     disabled={applicationStatus.status === 'full' || applicationStatus.status === 'expired'}
                     startIcon={applicationStatus.status === 'open' ? <Login /> : undefined}
+                    sx={{
+                      backgroundColor: applicationStatus.status === 'open' ? accentColor : mediumGray,
+                      color: applicationStatus.status === 'open' ? 'white' : secondaryColor,
+                      borderRadius: '25px',
+                      py: 1.5,
+                      fontWeight: '600',
+                      '&:hover': {
+                        backgroundColor: applicationStatus.status === 'open' ? '#E55A2B' : mediumGray,
+                        transform: applicationStatus.status === 'open' ? 'translateY(-2px)' : 'none'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
                   >
                     {applicationStatus.label}
                   </Button>
@@ -370,48 +453,83 @@ const Courses = () => {
 
       {/* Pagination */}
       {filteredCourses.length > coursesPerPage && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
           <Pagination
             count={Math.ceil(filteredCourses.length / coursesPerPage)}
             page={page}
             onChange={(event, value) => setPage(value)}
-            color="primary"
+            sx={{
+              '& .MuiPaginationItem-root': {
+                color: secondaryColor,
+                '&.Mui-selected': {
+                  backgroundColor: accentColor,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: '#E55A2B'
+                  }
+                }
+              }
+            }}
           />
         </Box>
       )}
 
       {filteredCourses.length === 0 && !loading && (
-        <Typography variant="h6" align="center" sx={{ mt: 4 }}>
+        <Typography variant="h6" align="center" sx={{ mt: 4, color: secondaryColor }}>
           No courses found matching your criteria.
         </Typography>
       )}
 
       {/* Login Prompt Dialog */}
-      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)}>
-        <DialogTitle>Login Required</DialogTitle>
+      <Dialog 
+        open={loginDialogOpen} 
+        onClose={() => setLoginDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px'
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
+          Login Required
+        </DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography sx={{ color: secondaryColor, mb: 2 }}>
             You need to be logged in as a student to apply for courses. Please log in or create an account to continue.
           </Typography>
           {selectedCourse && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
+            <Box sx={{ mt: 2, p: 2, backgroundColor: lightGray, borderRadius: '8px' }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
                 Course you want to apply for:
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: secondaryColor }}>
                 <strong>{selectedCourse.name}</strong> at {getInstitutionName(selectedCourse.institutionId)}
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLoginDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={() => setLoginDialogOpen(false)}
+            sx={{ color: secondaryColor }}
+          >
+            Cancel
+          </Button>
           <Button 
             variant="contained" 
             onClick={() => {
               setLoginDialogOpen(false);
               // Redirect to login page - you'll need to implement this based on your routing
               window.location.href = '/login?redirect=courses';
+            }}
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
             }}
           >
             Go to Login
@@ -428,6 +546,9 @@ const Courses = () => {
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 
           severity={snackbar.severity}
+          sx={{
+            borderRadius: '8px'
+          }}
         >
           {snackbar.message}
         </Alert>
