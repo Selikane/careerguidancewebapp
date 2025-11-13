@@ -28,7 +28,9 @@ import {
   MenuItem,
   Select,
   FormControl,
-  InputLabel
+  InputLabel,
+  alpha,
+  CircularProgress
 } from '@mui/material';
 import {
   AdminPanelSettings,
@@ -42,7 +44,8 @@ import {
   Refresh,
   Add,
   Edit,
-  Delete
+  Delete,
+  Pending
 } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { 
@@ -57,6 +60,14 @@ import {
   where 
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+
+// Color scheme matching the student dashboard
+const primaryColor = '#000000';
+const secondaryColor = '#333333';
+const accentColor = '#FF6B35';
+const backgroundColor = '#FFFFFF';
+const lightGray = '#f5f5f5';
+const mediumGray = '#e0e0e0';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -75,6 +86,7 @@ const AdminDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [systemStats, setSystemStats] = useState({});
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   // Dialog states
@@ -119,13 +131,6 @@ const AdminDashboard = () => {
     // Always return true for now - we'll handle security via Firestore rules
     // In production, you'd want proper authentication
     return true;
-    
-    // Uncomment below for proper authentication check
-    /*
-    return isHardcodedAdminSession || 
-           userType === 'admin' || 
-           (user && ['systemadmin@gmail.com', 'admin@careerguidels.org', 'kabelo@admin.com'].includes(user.email?.toLowerCase()));
-    */
   };
 
   useEffect(() => {
@@ -139,6 +144,7 @@ const AdminDashboard = () => {
     if (!hasAdminAccess()) return;
     
     setLoading(true);
+    setRefreshing(true);
     try {
       // Load institutions
       const institutionsSnapshot = await getDocs(collection(db, 'institutions'));
@@ -192,6 +198,7 @@ const AdminDashboard = () => {
       showSnackbar('Error loading data. Check console for details.', 'error');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -385,118 +392,122 @@ const AdminDashboard = () => {
 
   const getStatusChip = (status) => {
     const statusConfig = {
-      active: { color: 'success', label: 'Active' },
-      suspended: { color: 'error', label: 'Suspended' },
-      approved: { color: 'success', label: 'Approved' },
-      pending: { color: 'warning', label: 'Pending' },
-      rejected: { color: 'error', label: 'Rejected' }
+      active: { color: 'success', label: 'Active', icon: <CheckCircle /> },
+      suspended: { color: 'error', label: 'Suspended', icon: <Block /> },
+      approved: { color: 'success', label: 'Approved', icon: <CheckCircle /> },
+      pending: { color: 'warning', label: 'Pending', icon: <Pending /> },
+      rejected: { color: 'error', label: 'Rejected', icon: <Cancel /> }
     };
     const config = statusConfig[status] || statusConfig.pending;
-    return <Chip label={config.label} color={config.color} size="small" />;
+    return (
+      <Chip
+        icon={config.icon}
+        label={config.label}
+        color={config.color}
+        size="small"
+        sx={{
+          '&.MuiChip-success': {
+            backgroundColor: alpha('#4CAF50', 0.1),
+            color: '#4CAF50'
+          },
+          '&.MuiChip-warning': {
+            backgroundColor: alpha('#FF9800', 0.1),
+            color: '#FF9800'
+          },
+          '&.MuiChip-error': {
+            backgroundColor: alpha('#F44336', 0.1),
+            color: '#F44336'
+          }
+        }}
+      />
+    );
   };
-
-  const calculateStats = () => {
-    return {
-      totalInstitutions: institutions.length,
-      totalCompanies: companies.length,
-      totalStudents: students.length,
-      totalPending: pendingApprovals.length,
-      totalCourses: courses.length
-    };
-  };
-
-  const stats = calculateStats();
 
   // Show access denied if no admin access
   if (!hasAdminAccess()) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">
+        <Alert severity="error" sx={{ borderRadius: '12px' }}>
           Access denied. Admin privileges required.
         </Alert>
       </Container>
     );
   }
 
+  if (loading && !refreshing) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px" flexDirection="column">
+        <CircularProgress sx={{ color: accentColor }} size={60} />
+        <Typography variant="h6" sx={{ mt: 2, color: secondaryColor, fontWeight: '300' }}>
+          Loading Admin Dashboard...
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ borderRadius: '8px' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
             Admin Dashboard
           </Typography>
-          <Typography variant="h6" color="textSecondary">
+          <Typography variant="h6" sx={{ color: secondaryColor, fontWeight: '300' }}>
             Full System Administration
           </Typography>
         </Box>
         <Button 
           startIcon={<Refresh />} 
           onClick={loadData} 
-          disabled={loading}
+          disabled={refreshing}
           variant="outlined"
+          sx={{
+            borderColor: accentColor,
+            color: accentColor,
+            borderRadius: '25px',
+            '&:hover': {
+              borderColor: '#E55A2B',
+              backgroundColor: alpha(accentColor, 0.1)
+            }
+          }}
         >
-          Refresh
+          {refreshing ? 'Refreshing...' : 'Refresh Data'}
         </Button>
       </Box>
 
-      {/* Quick Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <School sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{stats.totalInstitutions}</Typography>
-                  <Typography variant="body2">Institutions</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Business sx={{ fontSize: 40, color: 'secondary.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{stats.totalCompanies}</Typography>
-                  <Typography variant="body2">Companies</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Group sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{stats.totalCourses}</Typography>
-                  <Typography variant="body2">Courses</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <TrendingUp sx={{ fontSize: 40, color: 'warning.main', mr: 2 }} />
-                <Box>
-                  <Typography variant="h4">{stats.totalPending}</Typography>
-                  <Typography variant="body2">Pending Approvals</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper>
-        <Tabs value={tabValue} onChange={handleTabChange}>
+      {/* Main Content - Statistics Removed */}
+      <Paper sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          sx={{
+            '& .MuiTab-root': {
+              color: secondaryColor,
+              '&.Mui-selected': {
+                color: accentColor,
+              }
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: accentColor,
+            }
+          }}
+        >
           <Tab label="Pending Approvals" />
           <Tab label="Institutions" />
           <Tab label="Courses" />
@@ -506,54 +517,78 @@ const AdminDashboard = () => {
 
         {/* Pending Approvals Tab */}
         <TabPanel value={tabValue} index={0}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
               Pending Approvals ({pendingApprovals.length})
             </Typography>
           </Box>
           {pendingApprovals.length === 0 ? (
-            <Alert severity="info">No pending approvals at this time.</Alert>
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
+              <CardContent sx={{ textAlign: 'center', py: 6 }}>
+                <CheckCircle sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
+                <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
+                  No Pending Approvals
+                </Typography>
+                <Typography variant="body2" sx={{ color: secondaryColor, fontWeight: '300' }}>
+                  All institutions and companies are approved and active.
+                </Typography>
+              </CardContent>
+            </Card>
           ) : (
-            <TableContainer>
+            <TableContainer component={Paper} sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Submitted Date</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Type</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Email</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Submitted Date</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {pendingApprovals.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
+                    <TableRow key={item.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell sx={{ color: primaryColor }}>{item.name}</TableCell>
                       <TableCell>
                         <Chip 
                           label={item.type.charAt(0).toUpperCase() + item.type.slice(1)} 
                           variant="outlined"
                           size="small"
+                          sx={{
+                            borderColor: accentColor,
+                            color: accentColor
+                          }}
                         />
                       </TableCell>
-                      <TableCell>{item.email}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ color: secondaryColor }}>{item.email}</TableCell>
+                      <TableCell sx={{ color: secondaryColor }}>
                         {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : 'N/A'}
                       </TableCell>
                       <TableCell>{getStatusChip('pending')}</TableCell>
                       <TableCell>
                         <IconButton 
-                          color="success" 
                           onClick={() => handleApprove(item.id, item.type)}
                           title="Approve"
+                          sx={{
+                            color: '#4CAF50',
+                            '&:hover': {
+                              backgroundColor: alpha('#4CAF50', 0.1)
+                            }
+                          }}
                         >
                           <CheckCircle />
                         </IconButton>
                         <IconButton 
-                          color="error" 
                           onClick={() => handleReject(item.id, item.type)}
                           title="Reject"
+                          sx={{
+                            color: '#F44336',
+                            '&:hover': {
+                              backgroundColor: alpha('#F44336', 0.1)
+                            }
+                          }}
                         >
                           <Cancel />
                         </IconButton>
@@ -568,8 +603,8 @@ const AdminDashboard = () => {
 
         {/* Institutions Tab */}
         <TabPanel value={tabValue} index={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
               Institution Management ({institutions.length})
             </Typography>
             <Button 
@@ -579,27 +614,36 @@ const AdminDashboard = () => {
                 setInstitutionDialog({ open: true, mode: 'add', data: null });
                 setInstitutionForm({ name: '', email: '', phone: '', address: '', website: '', description: '' });
               }}
+              sx={{
+                backgroundColor: accentColor,
+                color: 'white',
+                borderRadius: '25px',
+                px: 3,
+                '&:hover': {
+                  backgroundColor: '#E55A2B'
+                }
+              }}
             >
               Add Institution
             </Button>
           </Box>
-          <TableContainer>
+          <TableContainer component={Paper} sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Phone</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {institutions.map((institution) => (
-                  <TableRow key={institution.id}>
-                    <TableCell>{institution.name}</TableCell>
-                    <TableCell>{institution.email}</TableCell>
-                    <TableCell>{institution.phone}</TableCell>
+                  <TableRow key={institution.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell sx={{ color: primaryColor }}>{institution.name}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{institution.email}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{institution.phone}</TableCell>
                     <TableCell>
                       {getStatusChip(institution.isActive ? 'active' : 'suspended')}
                       {!institution.isApproved && getStatusChip('pending')}
@@ -607,7 +651,6 @@ const AdminDashboard = () => {
                     <TableCell>
                       <IconButton 
                         size="small" 
-                        color="primary"
                         onClick={() => {
                           setInstitutionDialog({ open: true, mode: 'edit', data: institution });
                           setInstitutionForm({
@@ -619,24 +662,40 @@ const AdminDashboard = () => {
                             description: institution.description || ''
                           });
                         }}
+                        sx={{
+                          color: accentColor,
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1)
+                          }
+                        }}
                       >
                         <Edit />
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        color={institution.isActive ? "warning" : "success"}
                         onClick={() => handleStatusChange(
                           institution.id, 
                           'institution', 
                           institution.isActive ? 'suspended' : 'active'
                         )}
+                        sx={{
+                          color: institution.isActive ? '#FF9800' : '#4CAF50',
+                          '&:hover': {
+                            backgroundColor: alpha(institution.isActive ? '#FF9800' : '#4CAF50', 0.1)
+                          }
+                        }}
                       >
                         <Block />
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        color="error"
                         onClick={() => handleDeleteInstitution(institution.id)}
+                        sx={{
+                          color: '#F44336',
+                          '&:hover': {
+                            backgroundColor: alpha('#F44336', 0.1)
+                          }
+                        }}
                       >
                         <Delete />
                       </IconButton>
@@ -650,8 +709,8 @@ const AdminDashboard = () => {
 
         {/* Courses Tab */}
         <TabPanel value={tabValue} index={2}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
               Course Management ({courses.length})
             </Typography>
             <Button 
@@ -669,34 +728,42 @@ const AdminDashboard = () => {
                   description: '' 
                 });
               }}
+              sx={{
+                backgroundColor: accentColor,
+                color: 'white',
+                borderRadius: '25px',
+                px: 3,
+                '&:hover': {
+                  backgroundColor: '#E55A2B'
+                }
+              }}
             >
               Add Course
             </Button>
           </Box>
-          <TableContainer>
+          <TableContainer component={Paper} sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Course Name</TableCell>
-                  <TableCell>Institution</TableCell>
-                  <TableCell>Faculty</TableCell>
-                  <TableCell>Duration</TableCell>
-                  <TableCell>Capacity</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Course Name</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Institution</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Faculty</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Duration</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Capacity</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {courses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell>{course.name}</TableCell>
-                    <TableCell>{course.institutionName}</TableCell>
-                    <TableCell>{course.faculty}</TableCell>
-                    <TableCell>{course.duration}</TableCell>
-                    <TableCell>{course.currentApplications || 0}/{course.capacity}</TableCell>
+                  <TableRow key={course.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell sx={{ color: primaryColor }}>{course.name}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{course.institutionName}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{course.faculty}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{course.duration}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{course.currentApplications || 0}/{course.capacity}</TableCell>
                     <TableCell>
                       <IconButton 
                         size="small" 
-                        color="primary"
                         onClick={() => {
                           setCourseDialog({ open: true, mode: 'edit', data: course });
                           setCourseForm({
@@ -709,13 +776,24 @@ const AdminDashboard = () => {
                             description: course.description || ''
                           });
                         }}
+                        sx={{
+                          color: accentColor,
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1)
+                          }
+                        }}
                       >
                         <Edit />
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        color="error"
                         onClick={() => handleDeleteCourse(course.id)}
+                        sx={{
+                          color: '#F44336',
+                          '&:hover': {
+                            backgroundColor: alpha('#F44336', 0.1)
+                          }
+                        }}
                       >
                         <Delete />
                       </IconButton>
@@ -729,8 +807,8 @@ const AdminDashboard = () => {
 
         {/* Companies Tab */}
         <TabPanel value={tabValue} index={3}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
               Company Management ({companies.length})
             </Typography>
             <Button 
@@ -748,27 +826,36 @@ const AdminDashboard = () => {
                   description: '' 
                 });
               }}
+              sx={{
+                backgroundColor: accentColor,
+                color: 'white',
+                borderRadius: '25px',
+                px: 3,
+                '&:hover': {
+                  backgroundColor: '#E55A2B'
+                }
+              }}
             >
               Add Company
             </Button>
           </Box>
-          <TableContainer>
+          <TableContainer component={Paper} sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Company Name</TableCell>
-                  <TableCell>Industry</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Company Name</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Industry</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: '600', color: primaryColor }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {companies.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell>{company.name}</TableCell>
-                    <TableCell>{company.industry}</TableCell>
-                    <TableCell>{company.email}</TableCell>
+                  <TableRow key={company.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell sx={{ color: primaryColor }}>{company.name}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{company.industry}</TableCell>
+                    <TableCell sx={{ color: secondaryColor }}>{company.email}</TableCell>
                     <TableCell>
                       {getStatusChip(company.isActive ? 'active' : 'suspended')}
                       {!company.isApproved && getStatusChip('pending')}
@@ -776,7 +863,6 @@ const AdminDashboard = () => {
                     <TableCell>
                       <IconButton 
                         size="small" 
-                        color="primary"
                         onClick={() => {
                           setCompanyDialog({ open: true, mode: 'edit', data: company });
                           setCompanyForm({
@@ -789,24 +875,40 @@ const AdminDashboard = () => {
                             description: company.description || ''
                           });
                         }}
+                        sx={{
+                          color: accentColor,
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1)
+                          }
+                        }}
                       >
                         <Edit />
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        color={company.isActive ? "warning" : "success"}
                         onClick={() => handleStatusChange(
                           company.id, 
                           'company', 
                           company.isActive ? 'suspended' : 'active'
                         )}
+                        sx={{
+                          color: company.isActive ? '#FF9800' : '#4CAF50',
+                          '&:hover': {
+                            backgroundColor: alpha(company.isActive ? '#FF9800' : '#4CAF50', 0.1)
+                          }
+                        }}
                       >
                         <Block />
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        color="error"
                         onClick={() => handleDeleteCompany(company.id)}
+                        sx={{
+                          color: '#F44336',
+                          '&:hover': {
+                            backgroundColor: alpha('#F44336', 0.1)
+                          }
+                        }}
                       >
                         <Delete />
                       </IconButton>
@@ -820,54 +922,94 @@ const AdminDashboard = () => {
 
         {/* System Reports Tab */}
         <TabPanel value={tabValue} index={4}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600' }}>
             System Reports & Analytics
           </Typography>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                     Platform Statistics
                   </Typography>
-                  <Typography><strong>Total Users:</strong> {systemStats.totalUsers || 0}</Typography>
-                  <Typography><strong>Total Institutions:</strong> {systemStats.totalInstitutions || 0}</Typography>
-                  <Typography><strong>Total Companies:</strong> {systemStats.totalCompanies || 0}</Typography>
-                  <Typography><strong>Total Courses:</strong> {systemStats.totalCourses || 0}</Typography>
-                  <Typography><strong>Job Postings:</strong> {systemStats.jobPostings || 0}</Typography>
-                  <Typography><strong>Course Applications:</strong> {systemStats.courseApplications || 0}</Typography>
-                  <Typography><strong>Active Applications:</strong> {systemStats.activeApplications || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Total Users:</strong> {systemStats.totalUsers || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Total Institutions:</strong> {systemStats.totalInstitutions || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Total Companies:</strong> {systemStats.totalCompanies || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Total Courses:</strong> {systemStats.totalCourses || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Job Postings:</strong> {systemStats.jobPostings || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Course Applications:</strong> {systemStats.courseApplications || 0}</Typography>
+                  <Typography sx={{ color: secondaryColor, mb: 1 }}><strong>Active Applications:</strong> {systemStats.activeApplications || 0}</Typography>
                 </CardContent>
               </Card>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
+              <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                     Quick Actions
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Button 
                       variant="outlined" 
                       onClick={() => setTabValue(1)}
+                      sx={{
+                        borderColor: primaryColor,
+                        color: primaryColor,
+                        borderRadius: '25px',
+                        '&:hover': {
+                          borderColor: accentColor,
+                          color: accentColor,
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
+                      }}
                     >
                       Manage Institutions
                     </Button>
                     <Button 
                       variant="outlined" 
                       onClick={() => setTabValue(2)}
+                      sx={{
+                        borderColor: primaryColor,
+                        color: primaryColor,
+                        borderRadius: '25px',
+                        '&:hover': {
+                          borderColor: accentColor,
+                          color: accentColor,
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
+                      }}
                     >
                       Manage Courses
                     </Button>
                     <Button 
                       variant="outlined" 
                       onClick={() => setTabValue(3)}
+                      sx={{
+                        borderColor: primaryColor,
+                        color: primaryColor,
+                        borderRadius: '25px',
+                        '&:hover': {
+                          borderColor: accentColor,
+                          color: accentColor,
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
+                      }}
                     >
                       Manage Companies
                     </Button>
                     <Button 
                       variant="outlined" 
                       onClick={() => setTabValue(0)}
+                      sx={{
+                        borderColor: primaryColor,
+                        color: primaryColor,
+                        borderRadius: '25px',
+                        '&:hover': {
+                          borderColor: accentColor,
+                          color: accentColor,
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
+                      }}
                     >
                       Review Pending Approvals
                     </Button>
@@ -880,8 +1022,14 @@ const AdminDashboard = () => {
       </Paper>
 
       {/* Institution Dialog */}
-      <Dialog open={institutionDialog.open} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={institutionDialog.open} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+        onClose={() => setInstitutionDialog({ open: false, mode: 'add', data: null })}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
           {institutionDialog.mode === 'add' ? 'Add New Institution' : 'Edit Institution'}
         </DialogTitle>
         <DialogContent>
@@ -892,6 +1040,11 @@ const AdminDashboard = () => {
                 label="Institution Name"
                 value={institutionForm.name}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, name: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -901,6 +1054,11 @@ const AdminDashboard = () => {
                 type="email"
                 value={institutionForm.email}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, email: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -909,6 +1067,11 @@ const AdminDashboard = () => {
                 label="Phone"
                 value={institutionForm.phone}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, phone: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -917,6 +1080,11 @@ const AdminDashboard = () => {
                 label="Website"
                 value={institutionForm.website}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, website: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -925,6 +1093,11 @@ const AdminDashboard = () => {
                 label="Address"
                 value={institutionForm.address}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, address: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -935,17 +1108,34 @@ const AdminDashboard = () => {
                 rows={3}
                 value={institutionForm.description}
                 onChange={(e) => setInstitutionForm({ ...institutionForm, description: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setInstitutionDialog({ open: false, mode: 'add', data: null })}>
+          <Button 
+            onClick={() => setInstitutionDialog({ open: false, mode: 'add', data: null })}
+            sx={{ color: secondaryColor }}
+          >
             Cancel
           </Button>
           <Button 
             onClick={institutionDialog.mode === 'add' ? handleAddInstitution : handleUpdateInstitution}
             variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
           >
             {institutionDialog.mode === 'add' ? 'Add Institution' : 'Update Institution'}
           </Button>
@@ -953,8 +1143,14 @@ const AdminDashboard = () => {
       </Dialog>
 
       {/* Course Dialog */}
-      <Dialog open={courseDialog.open} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={courseDialog.open} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+        onClose={() => setCourseDialog({ open: false, mode: 'add', data: null })}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
           {courseDialog.mode === 'add' ? 'Add New Course' : 'Edit Course'}
         </DialogTitle>
         <DialogContent>
@@ -965,6 +1161,11 @@ const AdminDashboard = () => {
                 label="Course Name"
                 value={courseForm.name}
                 onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -974,6 +1175,9 @@ const AdminDashboard = () => {
                   value={courseForm.institutionId}
                   label="Institution"
                   onChange={(e) => setCourseForm({ ...courseForm, institutionId: e.target.value })}
+                  sx={{
+                    borderRadius: '8px'
+                  }}
                 >
                   {institutions.map((inst) => (
                     <MenuItem key={inst.id} value={inst.id}>
@@ -989,6 +1193,11 @@ const AdminDashboard = () => {
                 label="Faculty"
                 value={courseForm.faculty}
                 onChange={(e) => setCourseForm({ ...courseForm, faculty: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -997,6 +1206,11 @@ const AdminDashboard = () => {
                 label="Duration"
                 value={courseForm.duration}
                 onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1006,6 +1220,11 @@ const AdminDashboard = () => {
                 type="number"
                 value={courseForm.capacity}
                 onChange={(e) => setCourseForm({ ...courseForm, capacity: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1016,6 +1235,11 @@ const AdminDashboard = () => {
                 rows={2}
                 value={courseForm.requirements}
                 onChange={(e) => setCourseForm({ ...courseForm, requirements: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1026,17 +1250,34 @@ const AdminDashboard = () => {
                 rows={3}
                 value={courseForm.description}
                 onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCourseDialog({ open: false, mode: 'add', data: null })}>
+          <Button 
+            onClick={() => setCourseDialog({ open: false, mode: 'add', data: null })}
+            sx={{ color: secondaryColor }}
+          >
             Cancel
           </Button>
           <Button 
             onClick={courseDialog.mode === 'add' ? handleAddCourse : handleUpdateCourse}
             variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
           >
             {courseDialog.mode === 'add' ? 'Add Course' : 'Update Course'}
           </Button>
@@ -1044,8 +1285,14 @@ const AdminDashboard = () => {
       </Dialog>
 
       {/* Company Dialog */}
-      <Dialog open={companyDialog.open} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={companyDialog.open} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+        onClose={() => setCompanyDialog({ open: false, mode: 'add', data: null })}
+      >
+        <DialogTitle sx={{ fontWeight: '600', color: primaryColor }}>
           {companyDialog.mode === 'add' ? 'Add New Company' : 'Edit Company'}
         </DialogTitle>
         <DialogContent>
@@ -1056,6 +1303,11 @@ const AdminDashboard = () => {
                 label="Company Name"
                 value={companyForm.name}
                 onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1064,6 +1316,11 @@ const AdminDashboard = () => {
                 label="Industry"
                 value={companyForm.industry}
                 onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1073,6 +1330,11 @@ const AdminDashboard = () => {
                 type="email"
                 value={companyForm.email}
                 onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1081,6 +1343,11 @@ const AdminDashboard = () => {
                 label="Phone"
                 value={companyForm.phone}
                 onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1089,6 +1356,11 @@ const AdminDashboard = () => {
                 label="Website"
                 value={companyForm.website}
                 onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1097,6 +1369,11 @@ const AdminDashboard = () => {
                 label="Address"
                 value={companyForm.address}
                 onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1107,36 +1384,39 @@ const AdminDashboard = () => {
                 rows={3}
                 value={companyForm.description}
                 onChange={(e) => setCompanyForm({ ...companyForm, description: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCompanyDialog({ open: false, mode: 'add', data: null })}>
+          <Button 
+            onClick={() => setCompanyDialog({ open: false, mode: 'add', data: null })}
+            sx={{ color: secondaryColor }}
+          >
             Cancel
           </Button>
           <Button 
             onClick={companyDialog.mode === 'add' ? handleAddCompany : handleUpdateCompany}
             variant="contained"
+            sx={{
+              backgroundColor: accentColor,
+              color: 'white',
+              borderRadius: '25px',
+              px: 3,
+              '&:hover': {
+                backgroundColor: '#E55A2B'
+              }
+            }}
           >
             {companyDialog.mode === 'add' ? 'Add Company' : 'Update Company'}
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.severity}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Container>
   );
 };
