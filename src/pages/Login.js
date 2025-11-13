@@ -41,7 +41,7 @@ const Login = () => {
   // Auto-redirect if user is already logged in or after successful login
   useEffect(() => {
     if (user) {
-      console.log('🎯 User detected, starting auto-redirect...');
+      console.log(' User detected, starting auto-redirect...');
       handleAutoRedirect(user.uid);
     }
   }, [user]);
@@ -49,14 +49,14 @@ const Login = () => {
   // Handle successful login status
   useEffect(() => {
     if (loginStatus === 'success' && user) {
-      console.log('✅ Login successful, triggering auto-redirect...');
+      console.log( Login successful, triggering auto-redirect...');
       handleAutoRedirect(user.uid);
     }
   }, [loginStatus, user]);
 
   const determineUserType = async (userId) => {
     try {
-      console.log('🔄 Determining user type for:', userId);
+      console.log(' Determining user type for:', userId);
       
       // Check multiple collections to determine user type
       const collectionsToCheck = ['students', 'institutions', 'companies', 'admins', 'users'];
@@ -66,7 +66,7 @@ const Login = () => {
           const userDoc = await getDoc(doc(db, collection, userId));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            console.log(`✅ Found user in ${collection}:`, userData);
+            console.log(` Found user in ${collection}:`, userData);
             
             // Return user type based on collection or userData
             switch (collection) {
@@ -85,11 +85,11 @@ const Login = () => {
             }
           }
         } catch (error) {
-          console.log(`⚠️ No user found in ${collection} or error:`, error.message);
+          console.log(` No user found in ${collection} or error:`, error.message);
         }
       }
       
-      console.log('🔍 User not found in standard collections, defaulting to student');
+      console.log(' User not found in standard collections, defaulting to student');
       return 'student';
       
     } catch (error) {
@@ -409,3 +409,4 @@ const Login = () => {
 };
 
 export default Login;
+
