@@ -1198,29 +1198,9 @@ const StudentDashboard = () => {
 
         {/* Available Courses Tab */}
         <TabPanel value={tabValue} index={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" sx={{ color: primaryColor, fontWeight: '600' }}>
-              Available Courses ({availableCourses.length})
-            </Typography>
-            <Button 
-              variant="outlined" 
-              startIcon={<Refresh />}
-              onClick={handleRefreshData}
-              disabled={refreshing}
-              size="small"
-              sx={{
-                borderColor: accentColor,
-                color: accentColor,
-                borderRadius: '20px',
-                '&:hover': {
-                  borderColor: '#E55A2B',
-                  backgroundColor: alpha(accentColor, 0.1)
-                }
-              }}
-            >
-              Refresh
-            </Button>
-          </Box>
+          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600', mb: 3 }}>
+            Available Courses ({availableCourses.length})
+          </Typography>
           
           {availableCourses.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
@@ -1261,10 +1241,12 @@ const StudentDashboard = () => {
                   ).length;
 
                   return (
-                    <Grid item xs={12} md={6} key={course.id}>
+                    <Grid item xs={12} sm={6} md={4} key={course.id}>
                       <Card 
-                        variant="outlined" 
                         sx={{ 
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
                           borderRadius: '12px',
                           border: `1px solid ${mediumGray}`,
                           transition: 'all 0.3s ease',
@@ -1275,29 +1257,48 @@ const StudentDashboard = () => {
                           }
                         }}
                       >
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="h6" gutterBottom sx={{ color: primaryColor, minHeight: '64px' }}>
                             {course.name}
                           </Typography>
                           <Typography sx={{ color: secondaryColor, mb: 1, fontWeight: '300' }}>
-                            {course.institutionName} • {course.faculty}
+                            {course.institutionName}
                           </Typography>
-                          <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
-                            Duration: {course.duration}
+                          <Typography variant="body2" sx={{ color: secondaryColor, mb: 0.5 }}>
+                            <strong>Faculty:</strong> {course.faculty}
                           </Typography>
-                          <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
-                            Fee: ${course.fee}
+                          <Typography variant="body2" sx={{ color: secondaryColor, mb: 0.5 }}>
+                            <strong>Duration:</strong> {course.duration}
                           </Typography>
+                          <Typography variant="body2" sx={{ color: secondaryColor, mb: 1 }}>
+                            <strong>Fee:</strong> ${course.fee}
+                          </Typography>
+                          
                           {course.requirements && course.requirements !== 'None specified' && (
-                            <Typography variant="body2" gutterBottom sx={{ color: secondaryColor }}>
-                              Requirements: {course.requirements}
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: secondaryColor, 
+                                mb: 2,
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <strong>Requirements:</strong> {course.requirements}
                             </Typography>
                           )}
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                            <Typography variant="body2" sx={{ color: secondaryColor }}>
-                              Applications: {course.currentApplications}/{course.capacity}
-                            </Typography>
+                          
+                          <Box sx={{ mt: 'auto' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                              <Typography variant="body2" sx={{ color: secondaryColor }}>
+                                Applications: {course.currentApplications}/{course.capacity}
+                              </Typography>
+                            </Box>
+                            
                             <Button
+                              fullWidth
                               variant={alreadyApplied ? "outlined" : "contained"}
                               disabled={alreadyApplied || institutionApplications >= 2}
                               onClick={() => setApplyCourseDialog({ open: true, course })}
@@ -1305,20 +1306,21 @@ const StudentDashboard = () => {
                                 backgroundColor: alreadyApplied ? mediumGray : accentColor,
                                 color: alreadyApplied ? secondaryColor : 'white',
                                 borderRadius: '25px',
-                                px: 3,
+                                py: 1,
                                 '&:hover': {
                                   backgroundColor: alreadyApplied ? mediumGray : '#E55A2B'
                                 }
                               }}
                             >
-                              {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply'}
+                              {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply Now'}
                             </Button>
+                            
+                            {institutionApplications >= 2 && (
+                              <Typography variant="caption" sx={{ color: accentColor, mt: 1, display: 'block', textAlign: 'center' }}>
+                                Maximum 2 applications per institution
+                              </Typography>
+                            )}
                           </Box>
-                          {institutionApplications >= 2 && (
-                            <Typography variant="caption" sx={{ color: accentColor, mt: 1, display: 'block' }}>
-                              Maximum 2 applications per institution
-                            </Typography>
-                          )}
                         </CardContent>
                       </Card>
                     </Grid>
@@ -1634,3 +1636,4 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+
