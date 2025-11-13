@@ -15,6 +15,7 @@ import {
   ListItemText,
   useMediaQuery,
   useTheme,
+  alpha
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -33,8 +34,11 @@ const Navbar = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   
-  // FIX: Use 'sm' instead of 'md' for better mobile experience
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Changed from 'md' to 'sm'
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // Color scheme matching the home page
+  const primaryColor = '#000000';
+  const accentColor = '#FF6B35';
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -71,7 +75,14 @@ const Navbar = () => {
           <Button 
             color="inherit" 
             onClick={() => handleNavigation('/student/dashboard')}
-            sx={{ mx: 1 }}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
           >
             Dashboard
           </Button>
@@ -81,7 +92,14 @@ const Navbar = () => {
           <Button 
             color="inherit" 
             onClick={() => handleNavigation('/institution/dashboard')}
-            sx={{ mx: 1 }}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
           >
             Dashboard
           </Button>
@@ -91,7 +109,14 @@ const Navbar = () => {
           <Button 
             color="inherit" 
             onClick={() => handleNavigation('/company/dashboard')}
-            sx={{ mx: 1 }}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
           >
             Dashboard
           </Button>
@@ -101,7 +126,14 @@ const Navbar = () => {
           <Button 
             color="inherit" 
             onClick={() => handleNavigation('/admin/dashboard')}
-            sx={{ mx: 1 }}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
           >
             Dashboard
           </Button>
@@ -116,6 +148,12 @@ const Navbar = () => {
       anchor="left"
       open={mobileMenuOpen}
       onClose={() => setMobileMenuOpen(false)}
+      PaperProps={{
+        sx: {
+          backgroundColor: primaryColor,
+          color: 'white'
+        }
+      }}
     >
       <Box sx={{ width: 250 }} role="presentation">
         <List>
@@ -124,27 +162,69 @@ const Navbar = () => {
               button
               key={item.text}
               onClick={() => handleNavigation(item.path)}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(accentColor, 0.1),
+                  color: accentColor
+                }
+              }}
             >
               <ListItemText primary={item.text} />
             </ListItem>
           ))}
           {user && (
-            <ListItem button onClick={() => handleNavigation(`/${userType}/dashboard`)}>
+            <ListItem 
+              button 
+              onClick={() => handleNavigation(`/${userType}/dashboard`)}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(accentColor, 0.1),
+                  color: accentColor
+                }
+              }}
+            >
               <ListItemText primary="My Dashboard" />
             </ListItem>
           )}
           {!user && (
             <>
-              <ListItem button onClick={() => handleNavigation('/login')}>
+              <ListItem 
+                button 
+                onClick={() => handleNavigation('/login')}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: alpha(accentColor, 0.1),
+                    color: accentColor
+                  }
+                }}
+              >
                 <ListItemText primary="Login" />
               </ListItem>
-              <ListItem button onClick={() => handleNavigation('/register')}>
+              <ListItem 
+                button 
+                onClick={() => handleNavigation('/register')}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: alpha(accentColor, 0.1),
+                    color: accentColor
+                  }
+                }}
+              >
                 <ListItemText primary="Register" />
               </ListItem>
             </>
           )}
           {user && (
-            <ListItem button onClick={handleLogout}>
+            <ListItem 
+              button 
+              onClick={handleLogout}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(accentColor, 0.1),
+                  color: accentColor
+                }
+              }}
+            >
               <ListItemText primary="Logout" />
             </ListItem>
           )}
@@ -155,102 +235,198 @@ const Navbar = () => {
 
   return (
     <>
-      <AppBar position="static" sx={{ backgroundColor: '#1a237e' }}>
+      <AppBar 
+        position="static" 
+        sx={{ 
+          backgroundColor: primaryColor,
+          borderBottom: `1px solid ${alpha(accentColor, 0.2)}`,
+          boxShadow: 'none'
+        }}
+      >
         <Toolbar>
-          <School sx={{ mr: 2 }} />
-          <Typography
-            variant="h6"
-            component="div"
+          {/* Logo on Left */}
+          <Box 
             sx={{ 
-              flexGrow: 1, 
+              display: 'flex', 
+              alignItems: 'center', 
               cursor: 'pointer',
-              fontSize: { xs: '1rem', sm: '1.25rem' } // Better responsive font size
+              flexGrow: 1
             }}
             onClick={() => handleNavigation('/')}
           >
-            Career Guidance Lesotho
-          </Typography>
+            <School sx={{ mr: 1, color: accentColor }} />
+            <Typography
+              variant="h6"
+              component="div"
+              sx={{ 
+                color: 'white',
+                fontWeight: '600',
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                '&:hover': {
+                  color: accentColor
+                },
+                transition: 'color 0.3s ease'
+              }}
+            >
+              Career Guidance Lesotho
+            </Typography>
+          </Box>
 
           {isMobile ? (
             <>
               <IconButton
                 color="inherit"
                 onClick={() => setMobileMenuOpen(true)}
+                sx={{
+                  color: 'white',
+                  '&:hover': {
+                    color: accentColor,
+                    backgroundColor: alpha(accentColor, 0.1)
+                  }
+                }}
               >
                 <MenuIcon />
               </IconButton>
               {renderMobileMenu()}
             </>
           ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {menuItems.map((item) => (
-                <Button
-                  key={item.text}
-                  color="inherit"
-                  startIcon={item.icon}
-                  onClick={() => handleNavigation(item.path)}
-                  sx={{ mx: 1 }}
-                >
-                  {item.text}
-                </Button>
-              ))}
-
-              {renderUserSpecificMenu()}
-
-              {user ? (
-                <div>
-                  <IconButton
-                    size="large"
-                    aria-label="account of current user"
-                    aria-controls="menu-appbar"
-                    aria-haspopup="true"
-                    onClick={handleMenu}
+            <>
+              {/* Navigation Links and User Actions on Right */}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {/* Navigation Links */}
+                {menuItems.map((item) => (
+                  <Button
+                    key={item.text}
                     color="inherit"
-                  >
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                      {user.email.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </IconButton>
-                  <Menu
-                    id="menu-appbar"
-                    anchorEl={anchorEl}
-                    anchorOrigin={{
-                      vertical: 'top',
-                      horizontal: 'right',
+                    onClick={() => handleNavigation(item.path)}
+                    sx={{ 
+                      mx: 1,
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: alpha(accentColor, 0.1),
+                        color: accentColor
+                      },
+                      transition: 'all 0.3s ease'
                     }}
-                    keepMounted
-                    transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'right',
-                    }}
-                    open={Boolean(anchorEl)}
-                    onClose={handleClose}
                   >
-                    <MenuItem onClick={() => handleNavigation(`/${userType}/profile`)}>
-                      Profile
-                    </MenuItem>
-                    <MenuItem onClick={handleLogout}>Logout</MenuItem>
-                  </Menu>
-                </div>
-              ) : (
-                <Box>
-                  <Button 
-                    color="inherit" 
-                    onClick={() => handleNavigation('/login')}
-                    sx={{ mx: 1 }}
-                  >
-                    Login
+                    {item.text}
                   </Button>
-                  <Button 
-                    color="inherit" 
-                    onClick={() => handleNavigation('/register')}
-                    sx={{ mx: 1 }}
-                  >
-                    Register
-                  </Button>
-                </Box>
-              )}
-            </Box>
+                ))}
+
+                {renderUserSpecificMenu()}
+
+                {/* User Actions */}
+                {user ? (
+                  <div>
+                    <IconButton
+                      size="large"
+                      aria-label="account of current user"
+                      aria-controls="menu-appbar"
+                      aria-haspopup="true"
+                      onClick={handleMenu}
+                      color="inherit"
+                      sx={{
+                        color: 'white',
+                        '&:hover': {
+                          color: accentColor,
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
+                      }}
+                    >
+                      <Avatar sx={{ 
+                        width: 32, 
+                        height: 32, 
+                        backgroundColor: accentColor,
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}>
+                        {user.email.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </IconButton>
+                    <Menu
+                      id="menu-appbar"
+                      anchorEl={anchorEl}
+                      anchorOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
+                      keepMounted
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
+                      open={Boolean(anchorEl)}
+                      onClose={handleClose}
+                      PaperProps={{
+                        sx: {
+                          backgroundColor: primaryColor,
+                          color: 'white',
+                          border: `1px solid ${alpha(accentColor, 0.2)}`
+                        }
+                      }}
+                    >
+                      <MenuItem 
+                        onClick={() => handleNavigation(`/${userType}/profile`)}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1),
+                            color: accentColor
+                          }
+                        }}
+                      >
+                        Profile
+                      </MenuItem>
+                      <MenuItem 
+                        onClick={handleLogout}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1),
+                            color: accentColor
+                          }
+                        }}
+                      >
+                        Logout
+                      </MenuItem>
+                    </Menu>
+                  </div>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Button 
+                      color="inherit" 
+                      onClick={() => handleNavigation('/login')}
+                      sx={{ 
+                        mx: 1,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: alpha(accentColor, 0.1),
+                          color: accentColor
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      Login
+                    </Button>
+                    <Button 
+                      variant="outlined"
+                      onClick={() => handleNavigation('/register')}
+                      sx={{ 
+                        mx: 1,
+                        borderColor: accentColor,
+                        color: accentColor,
+                        '&:hover': {
+                          backgroundColor: accentColor,
+                          color: 'white',
+                          borderColor: accentColor
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      Register
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </>
           )}
         </Toolbar>
       </AppBar>
