@@ -49,85 +49,14 @@ import {
   Visibility,
   Refresh
 } from '@mui/icons-material';
-// Note: AuthContext and service imports are assumed to be defined elsewhere in the environment
-// and are necessary for the component to function, but we keep them here as is.
-// import { AuthContext } from '../contexts/AuthContext';
-// import { companyProfileService, jobsService, applicantsService, analyticsService, demoCompanyService } from '../services/companyService';
-
-// Mock/Placeholder for Context and Services to ensure component compilation in a single file setup
-const AuthContext = React.createContext({ user: { uid: 'mock-user-id', email: 'mock@company.com' } });
-const mockService = {
-  // Mock implementations to prevent runtime errors in a single-file environment
-  getCompanyProfile: (uid, callback, onError) => {
-    // Simulate initial profile check
-    setTimeout(() => callback({
-      exists: () => true,
-      id: uid,
-      data: () => ({ name: 'Acme Corp', industry: 'Technology', email: 'contact@acme.com' })
-    }), 500);
-    return () => {}; // Return unsubscribe
-  },
-  getCompanyJobs: (uid, callback, onError) => {
-    // Simulate real-time listener for jobs
-    setTimeout(() => callback({
-      empty: false,
-      docs: [
-        { id: 'j1', data: () => ({ title: 'Senior Developer', location: 'Remote', type: 'full-time', status: 'active', requiredSkills: ['React', 'Node'], createdAt: { toDate: () => new Date() } }) },
-        { id: 'j2', data: () => ({ title: 'Product Designer', location: 'NYC', type: 'contract', status: 'active', requiredSkills: ['Figma', 'UX'], createdAt: { toDate: () => new Date() } }) }
-      ]
-    }), 1000);
-    return () => {};
-  },
-  getCompanyApplicants: (uid, callback, onError) => {
-    // Simulate real-time listener for applicants
-    setTimeout(() => callback({
-      empty: false,
-      docs: [
-        { id: 'a1', data: () => ({ studentName: 'Alice', studentEmail: 'a@example.com', jobId: 'j1', jobTitle: 'Senior Developer', status: 'shortlisted', applicationDate: { toDate: () => new Date() } }) },
-        { id: 'a2', data: () => ({ studentName: 'Bob', studentEmail: 'b@example.com', jobId: 'j2', jobTitle: 'Product Designer', status: 'new', applicationDate: { toDate: () => new Date() } }) }
-      ]
-    }), 1000);
-    return () => {};
-  },
-  getCompanyAnalytics: async () => ({ totalJobs: 2, activeJobs: 2, totalApplicants: 2, statusCounts: { new: 1, shortlisted: 1 }, topJobs: [] }),
-  createDemoCompanyProfile: async () => {},
-  createDemoJobs: async () => {},
-  createJob: async () => {},
-  closeJob: async () => {},
-  updateCompanyProfile: async () => {},
-  updateApplicantStatus: async () => {},
-  getQualifiedApplicants: async () => ([
-    {
-      id: '1',
-      studentName: 'John Doe',
-      studentEmail: 'john@example.com',
-      matchScore: 85,
-      status: 'new',
-      studentProfile: {
-        skills: ['JavaScript', 'React', 'Node.js'],
-        educationLevel: 'bachelor_degree'
-      }
-    },
-    {
-      id: '2',
-      studentName: 'Jane Smith',
-      studentEmail: 'jane@example.com',
-      matchScore: 72,
-      status: 'new',
-      studentProfile: {
-        skills: ['Python', 'Django', 'SQL'],
-        educationLevel: 'masters_degree'
-      }
-    }
-  ])
-};
-
-const companyProfileService = mockService;
-const jobsService = mockService;
-const applicantsService = mockService;
-const analyticsService = mockService;
-const demoCompanyService = mockService;
-// End of Mock/Placeholder
+import { AuthContext } from '../contexts/AuthContext';
+import {
+  companyProfileService,
+  jobsService,
+  applicantsService,
+  analyticsService,
+  demoCompanyService
+} from '../services/companyService';
 
 // Color scheme matching the student dashboard
 const primaryColor = '#000000';
@@ -248,118 +177,17 @@ const CompanyDashboard = () => {
 
   // Update analytics when jobs or applicants change
   useEffect(() => {
-    // Only recalculate if we are past the initial loading screen
     if (companyId && !loading) {
       const recalculatedAnalytics = calculateAnalytics(jobs, applicants);
       setAnalytics(recalculatedAnalytics);
     }
   }, [jobs, applicants, companyId, loading]);
 
-  // FIX: Refactor listener setup to use an initialLoad flag and resolve the Promise 
-  // with the initial data payload to ensure synchronous data calculation in initializeData.
-  const setupJobsListener = (uid) => {
-    let isInitialLoad = true; // Flag to track the first snapshot
-    return new Promise((resolve) => {
-      const unsubscribe = jobsService.getCompanyJobs(uid, (snapshot) => {
-        if (!snapshot || snapshot.empty) {
-          if (isInitialLoad) {
-            setJobs([]);
-            isInitialLoad = false;
-            return resolve([]); // Resolve with empty array
-          }
-          setJobs([]);
-          return;
-        }
-
-        try {
-          const jobsData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          setJobs(jobsData); // Update state for continuous UI updates
-          
-          if (isInitialLoad) {
-            isInitialLoad = false;
-            return resolve(jobsData); // Resolve promise with the initial data payload
-          }
-        } catch (error) {
-          console.error('Error processing jobs data:', error);
-          if (isInitialLoad) {
-            isInitialLoad = false;
-            setJobs([]);
-            return resolve([]); // Resolve on error during initial load
-          }
-          setJobs([]);
-        }
-      }, (error) => {
-        console.error('Error in jobs listener:', error);
-        showSnackbar('Error loading jobs', 'error');
-        if (isInitialLoad) {
-          isInitialLoad = false;
-          setJobs([]);
-          return resolve([]); // Resolve on listener error
-        }
-      });
-      // NOTE: Unsubscribe should ideally be handled in useEffect cleanup.
-    });
-  };
-
-  // FIX: Refactor listener setup for applicants with the same logic
-  const setupApplicantsListener = (uid) => {
-    let isInitialLoad = true; // Flag to track the first snapshot
-    return new Promise((resolve) => {
-      const unsubscribe = applicantsService.getCompanyApplicants(uid, (snapshot) => {
-        if (!snapshot || snapshot.empty) {
-          if (isInitialLoad) {
-            setApplicants([]);
-            isInitialLoad = false;
-            return resolve([]); // Resolve with empty array
-          }
-          setApplicants([]);
-          return;
-        }
-
-        try {
-          const applicantsData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          setApplicants(applicantsData); // Update state for continuous UI updates
-          
-          if (isInitialLoad) {
-            isInitialLoad = false;
-            return resolve(applicantsData); // Resolve promise with initial data payload
-          }
-        } catch (error) {
-          console.error('Error processing applicants data:', error);
-          if (isInitialLoad) {
-            isInitialLoad = false;
-            setApplicants([]);
-            return resolve([]); // Resolve on error during initial load
-          }
-          setApplicants([]);
-        }
-      }, (error) => {
-        console.error('Error in applicants listener:', error);
-        showSnackbar('Error loading applicants', 'error');
-        if (isInitialLoad) {
-          isInitialLoad = false;
-          setApplicants([]);
-          return resolve([]); // Resolve on listener error
-        }
-      });
-      // NOTE: Unsubscribe should ideally be handled in useEffect cleanup.
-    });
-  };
-
-  // FIX: Update initializeData to correctly await all listener initial loads and calculate analytics synchronously.
   const initializeData = async (uid) => {
     setLoading(true);
 
     try {
-      // 1. Load company profile first
+      // Load company profile first
       const profile = await loadCompanyProfile(uid);
       
       if (!profile) {
@@ -368,18 +196,13 @@ const CompanyDashboard = () => {
         return;
       }
 
-      // 2. Load jobs and applicants in parallel, capturing the initial data payload 
-      // from the listeners via Promise.all
-      const [jobsData, applicantsData] = await Promise.all([
+      // Load all data in parallel
+      await Promise.all([
         setupJobsListener(uid),
         setupApplicantsListener(uid),
+        loadAnalytics(uid)
       ]);
-      
-      // 3. Calculate analytics based on the synchronously returned data
-      const calculatedAnalytics = calculateAnalytics(jobsData, applicantsData);
-      setAnalytics(calculatedAnalytics);
-      
-      // 4. Set loading to false only after all data has been fetched and analytics calculated.
+
       setLoading(false);
     } catch (error) {
       console.error('Error initializing company data:', error);
@@ -388,7 +211,66 @@ const CompanyDashboard = () => {
     }
   };
 
-  // The rest of the functions remain the same as they were not the source of the initial load bug.
+  const setupJobsListener = (uid) => {
+    return new Promise((resolve) => {
+      const unsubscribe = jobsService.getCompanyJobs(uid, (snapshot) => {
+        if (!snapshot || snapshot.empty) {
+          setJobs([]);
+          resolve();
+          return;
+        }
+
+        try {
+          const jobsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setJobs(jobsData);
+          resolve();
+        } catch (error) {
+          console.error('Error processing jobs data:', error);
+          setJobs([]);
+          resolve();
+        }
+      }, (error) => {
+        console.error('Error in jobs listener:', error);
+        showSnackbar('Error loading jobs', 'error');
+        setJobs([]);
+        resolve();
+      });
+    });
+  };
+
+  const setupApplicantsListener = (uid) => {
+    return new Promise((resolve) => {
+      const unsubscribe = applicantsService.getCompanyApplicants(uid, (snapshot) => {
+        if (!snapshot || snapshot.empty) {
+          setApplicants([]);
+          resolve();
+          return;
+        }
+
+        try {
+          const applicantsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setApplicants(applicantsData);
+          resolve();
+        } catch (error) {
+          console.error('Error processing applicants data:', error);
+          setApplicants([]);
+          resolve();
+        }
+      }, (error) => {
+        console.error('Error in applicants listener:', error);
+        showSnackbar('Error loading applicants', 'error');
+        setApplicants([]);
+        resolve();
+      });
+    });
+  };
+
   const loadCompanyProfile = (uid) => {
     return new Promise((resolve) => {
       const unsubscribe = companyProfileService.getCompanyProfile(uid, (snapshot) => {
@@ -418,7 +300,6 @@ const CompanyDashboard = () => {
   };
 
   const loadAnalytics = async (uid) => {
-    // This function is now redundant for initial load but kept for robustness/future use
     try {
       const analyticsData = await analyticsService.getCompanyAnalytics(uid);
       
@@ -481,9 +362,11 @@ const CompanyDashboard = () => {
     setRefreshing(true);
     try {
       if (companyId) {
-        // Since initializeData now fully manages the state update process, we call it again
-        // to re-run the complete sequence of fetching the initial snapshots.
-        await initializeData(companyId); 
+        // FIXED: Removed the lines that clear data during refresh
+        await loadCompanyProfile(companyId);
+        await setupJobsListener(companyId);
+        await setupApplicantsListener(companyId);
+        await loadAnalytics(companyId);
         showSnackbar('All data refreshed successfully', 'success');
       }
     } catch (error) {
@@ -499,8 +382,7 @@ const CompanyDashboard = () => {
       setInitializing(true);
       await demoCompanyService.createDemoCompanyProfile(companyId, user.email);
       await demoCompanyService.createDemoJobs(companyId, 'Your Company');
-      // Re-run the full initialization sequence
-      await initializeData(companyId); 
+      await initializeData(companyId);
       showSnackbar('Company profile created successfully!', 'success');
     } catch (error) {
       console.error('Error creating company profile:', error);
