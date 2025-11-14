@@ -6,8 +6,8 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
-  sendEmailVerification,  // ADD THIS IMPORT
-  applyActionCode  // ADD THIS IMPORT for email verification handling
+  sendEmailVerification,
+  applyActionCode
 } from 'firebase/auth';
 import { 
   doc, 
@@ -72,13 +72,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ADD RESEND VERIFICATION FUNCTION
-  const resendVerificationEmail = async (email) => {
+  const resendVerificationEmail = async () => {
     try {
-      // For security, we need to sign in the user first to resend verification
-      // This is a simplified version - in production, you might want a different approach
-      throw new Error('Please sign out and try registering again, or contact support if you need verification email resent.');
+      if (!auth.currentUser) {
+        throw new Error('No user is currently signed in.');
+      }
+      await sendEmailVerification(auth.currentUser);
     } catch (error) {
-      throw new Error(error.message);
+      throw new Error('Failed to send verification email: ' + error.message);
     }
   };
 
@@ -148,6 +149,21 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // CRITICAL: Check email verification status before setting user
+        await firebaseUser.reload(); // Refresh to get latest email verification status
+        
+        if (!firebaseUser.emailVerified && !isAdminEmail(firebaseUser.email)) {
+          // If email is not verified and not admin, don't set user and sign out
+          console.log('❌ Email not verified, signing out user:', firebaseUser.email);
+          await signOut(auth);
+          setUser(null);
+          setUserType(null);
+          setUserData(null);
+          setLoading(false);
+          return;
+        }
+
+        // Only set user if email is verified or it's an admin account
         setUser(firebaseUser);
         
         try {
@@ -159,7 +175,7 @@ export const AuthProvider = ({ children }) => {
             const userData = userDoc.data();
             setUserType(userData.userType);
             setUserData(userData);
-            console.log('User data loaded - Type:', userData.userType, 'Email:', firebaseUser.email);
+            console.log('User data loaded - Type:', userData.userType, 'Email:', firebaseUser.email, 'Verified:', firebaseUser.emailVerified);
           } else {
             // User document doesn't exist - create one based on email
             console.log('User document not found, creating new user document for:', firebaseUser.email);
@@ -285,14 +301,8 @@ export const AuthProvider = ({ children }) => {
         });
       }
 
-      // Update local state
-      setUser(firebaseUser);
-      setUserType(userData.userType);
-      setUserData({
-        ...userData,
-        uid: firebaseUser.uid,
-        email: firebaseUser.email
-      });
+      // IMPORTANT: Sign out the user immediately after registration
+      await signOut(auth);
 
       return userCredential;
     } catch (error) {
@@ -322,6 +332,8 @@ export const AuthProvider = ({ children }) => {
       const firebaseUser = userCredential.user;
       
       // Check if email is verified (admin accounts are exempt)
+      await firebaseUser.reload(); // Refresh to get latest verification status
+      
       if (!firebaseUser.emailVerified && !isAdminEmail(email)) {
         // Sign out the user immediately since email is not verified
         await signOut(auth);
@@ -384,7 +396,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     resetPassword,
-    resendVerificationEmail,  // ADD THIS TO CONTEXT
+    resendVerificationEmail,
     promoteToAdmin,
     ensureAdminUserExists,
     loading
