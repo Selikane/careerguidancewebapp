@@ -1419,7 +1419,7 @@ const StudentDashboard = () => {
                                 overflow: 'hidden'
                               }}
                             >
-                              <strong>Requirements:</strong> {course.requirements}
+                              <strong>Requirements:</strong> {typeof course.requirements === 'string' ? course.requirements : course.requirements?.requirementsText || 'N/A'}
                             </Typography>
                           )}
                           

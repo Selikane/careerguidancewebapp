@@ -410,28 +410,25 @@ const InstitutionDashboard = () => {
   };
 
   const handleSaveCourse = async () => {
-    const isEditing = !!courseDialog.editingCourse;
-    const courseData = {
-      ...courseForm,
-      requirements: {
-        subjects: courseForm.requiredSubjects || [],
-        grades: courseForm.subjectGrades || {}
-      },
-      institutionId,
-      capacity: parseInt(courseForm.capacity || 0),
-      fee: parseFloat(courseForm.fee || 0),
-      currentApplications: isEditing
-        ? courseDialog.editingCourse.currentApplications
-        : 0,
-    };
-
-    if (!courseData.name || !courseData.faculty || courseData.capacity <= 0 || !courseData.requirements) {
-        showSnackbar('Name, Faculty, Capacity, and Requirements are required.', 'error');
-        return;
-    }
-
     try {
-      if (isEditing) {
+      // Build requirements object from form
+      const requirements = {
+        requirementsText: courseForm.requirements,
+        requiredSubjects: courseForm.requiredSubjects || [],
+        subjectGrades: courseForm.subjectGrades || {},
+      };
+      const courseData = {
+        name: courseForm.name,
+        faculty: courseForm.faculty,
+        capacity: Number(courseForm.capacity),
+        duration: courseForm.duration,
+        fee: Number(courseForm.fee),
+        requirements, // Save as structured object
+        institutionId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      if (courseDialog.editingCourse) {
         await coursesService.updateCourse(courseDialog.editingCourse.id, courseData);
         showSnackbar('Course updated successfully', 'success');
       } else {
@@ -439,9 +436,9 @@ const InstitutionDashboard = () => {
         showSnackbar('Course added successfully', 'success');
       }
       handleCloseCourseDialog();
+      handleRefreshData();
     } catch (error) {
-      console.error('Error saving course:', error);
-      showSnackbar(`Error ${isEditing ? 'updating' : 'adding'} course`, 'error');
+      showSnackbar('Error saving course', 'error');
     }
   };
 
@@ -1468,7 +1465,7 @@ const InstitutionDashboard = () => {
                           Duration: {course.duration} | Fee: ${course.fee}
                         </Typography>
                         <Typography variant="body2" sx={{ color: secondaryColor, mt: 1, fontWeight: '300' }}>
-                          Requirements: {course.requirements || 'N/A'}
+                          Requirements: {typeof course.requirements === 'string' ? course.requirements : course.requirements?.requirementsText || 'N/A'}
                         </Typography>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                           <Typography variant="body2" sx={{ fontWeight: '600', color: primaryColor }}>
