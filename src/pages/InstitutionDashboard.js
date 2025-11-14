@@ -49,6 +49,8 @@ import {
   demoService,
 } from '../services/institutionService';
 import { auth } from '../config/firebase';
+import { db } from '../config/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // Color scheme matching the student dashboard
 const primaryColor = '#000000';
@@ -129,6 +131,40 @@ const InstitutionDashboard = () => {
     website: '',
     type: 'university',
   });
+
+  // --- Prospectus Form Integration ---
+  const [prospectusForm, setProspectusForm] = useState({
+    title: '',
+    description: '',
+    year: new Date().getFullYear(),
+    documentUrl: ''
+  });
+  const [prospectusSubmitting, setProspectusSubmitting] = useState(false);
+  const [prospectusSuccess, setProspectusSuccess] = useState('');
+  const [prospectusError, setProspectusError] = useState('');
+
+  const handleProspectusChange = (e) => {
+    setProspectusForm({ ...prospectusForm, [e.target.name]: e.target.value });
+  };
+
+  const handleProspectusSubmit = async (e) => {
+    e.preventDefault();
+    setProspectusSubmitting(true);
+    setProspectusSuccess('');
+    setProspectusError('');
+    try {
+      await addDoc(collection(db, 'prospectuses'), {
+        ...prospectusForm,
+        institutionId: institutionId,
+        createdAt: serverTimestamp()
+      });
+      setProspectusSuccess('Prospectus submitted successfully!');
+      setProspectusForm({ title: '', description: '', year: new Date().getFullYear(), documentUrl: '' });
+    } catch (error) {
+      setProspectusError('Error submitting prospectus.');
+    }
+    setProspectusSubmitting(false);
+  };
 
   // --- EFFECT HOOKS (Initialization) ---
   useEffect(() => {
@@ -1558,6 +1594,73 @@ const InstitutionDashboard = () => {
               </Card>
             </Grid>
           </Grid>
+
+          {/* Prospectus Form */}
+          <Box sx={{ mt: 4, mb: 4 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Submit New Prospectus</Typography>
+            <form onSubmit={handleProspectusSubmit}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Title"
+                    name="title"
+                    value={prospectusForm.title}
+                    onChange={handleProspectusChange}
+                    fullWidth
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Year"
+                    name="year"
+                    type="number"
+                    value={prospectusForm.year}
+                    onChange={handleProspectusChange}
+                    fullWidth
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Description"
+                    name="description"
+                    value={prospectusForm.description}
+                    onChange={handleProspectusChange}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Document URL"
+                    name="documentUrl"
+                    value={prospectusForm.documentUrl}
+                    onChange={handleProspectusChange}
+                    fullWidth
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Button type="submit" variant="contained" disabled={prospectusSubmitting}>
+                    {prospectusSubmitting ? 'Submitting...' : 'Submit Prospectus'}
+                  </Button>
+                </Grid>
+                {prospectusSuccess && (
+                  <Grid item xs={12}>
+                    <Alert severity="success">{prospectusSuccess}</Alert>
+                  </Grid>
+                )}
+                {prospectusError && (
+                  <Grid item xs={12}>
+                    <Alert severity="error">{prospectusError}</Alert>
+                  </Grid>
+                )}
+              </Grid>
+            </form>
+          </Box>
         </TabPanel>
       </Paper>
     </Container>

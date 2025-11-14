@@ -89,6 +89,7 @@ const StudentDashboard = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [refreshing, setRefreshing] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [prospectuses, setProspectuses] = useState([]);
   
   // Dialog states
   const [applyCourseDialog, setApplyCourseDialog] = useState({ open: false, course: null });
@@ -162,6 +163,17 @@ const StudentDashboard = () => {
       }
     };
   }, [user]);
+
+  useEffect(() => {
+    if (studentProfile?.institutionId) {
+      const fetchProspectuses = async () => {
+        const q = query(collection(db, 'prospectuses'), where('institutionId', '==', studentProfile.institutionId));
+        const snapshot = await getDocs(q);
+        setProspectuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      };
+      fetchProspectuses();
+    }
+  }, [studentProfile?.institutionId]);
 
   // Improved function to load courses with better data processing
   const loadCoursesData = async () => {
@@ -1322,6 +1334,39 @@ const StudentDashboard = () => {
                   );
                 })}
             </Grid>
+          )}
+
+          <Typography variant="h6" gutterBottom sx={{ mt: 4, color: primaryColor, fontWeight: '600' }}>
+            Institution Prospectuses ({prospectuses.length})
+          </Typography>
+          {prospectuses.length === 0 ? (
+            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px', mt: 2 }}>
+              <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: secondaryColor }}>
+                  No prospectus available for your institution.
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : (
+            <List sx={{ mt: 2 }}>
+              {prospectuses.map((prospectus) => (
+                <ListItem key={prospectus.id} divider>
+                  <ListItemText
+                    primary={<Typography sx={{ color: primaryColor }}>{prospectus.title} ({prospectus.year})</Typography>}
+                    secondary={<Typography sx={{ color: secondaryColor }}>{prospectus.description}</Typography>}
+                  />
+                  <Button
+                    size="small"
+                    href={prospectus.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: accentColor }}
+                  >
+                    View Document
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
           )}
         </TabPanel>
 
