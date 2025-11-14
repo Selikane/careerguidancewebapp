@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -16,8 +16,8 @@ import {
 } from '@mui/material';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getAuth, sendEmailVerification, onAuthStateChanged } from 'firebase/auth';
 
-// Removed emojis from log messages and comments. All comments are now clear and direct.
 
 // Color scheme matching the institution dashboard
 const primaryColor = '#000000';
@@ -50,6 +50,13 @@ const Register = () => {
 
   const { register } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
+
+  const auth = getAuth();
 
   // Input validation functions
   const validateTextOnly = (value, fieldName) => {
@@ -147,7 +154,7 @@ const Register = () => {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -187,14 +194,39 @@ const Register = () => {
     }
 
     try {
-      await register(formData.email, formData.password, formData);
-      navigate(`/${formData.userType}/dashboard`);
+      const userCredential = await register(formData.email, formData.password, formData);
+      if (userCredential && userCredential.user) {
+        await sendEmailVerification(userCredential.user);
+        setVerificationSent(true);
+        setShowVerificationPrompt(true);
+        setLoading(false);
+      }
     } catch (error) {
       setError(error.message);
-    } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (showVerificationPrompt) {
+      setCheckingVerification(true);
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          await user.reload();
+          if (user.emailVerified) {
+            setIsVerified(true);
+            setCheckingVerification(false);
+            // Auto login after verification
+            navigate('/');
+          } else {
+            setIsVerified(false);
+            setCheckingVerification(false);
+          }
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [showVerificationPrompt, auth, navigate]);
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -520,8 +552,26 @@ const Register = () => {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleRegister}>
           {renderStepContent(activeStep)}
+
+          {showVerificationPrompt && (
+            <Box sx={{ mt: 4, textAlign: 'center' }}>
+              {!isVerified ? (
+                <Alert severity="info">
+                  Please verify your email address. A verification link has been sent to your email.<br />
+                  After verifying, this page will automatically log you in.
+                </Alert>
+              ) : (
+                <Alert severity="success">
+                  Your email is verified! Logging you in...
+                </Alert>
+              )}
+              {checkingVerification && (
+                <Typography sx={{ mt: 2 }}>Checking verification status...</Typography>
+              )}
+            </Box>
+          )}
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
             <Button

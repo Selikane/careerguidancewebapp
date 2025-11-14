@@ -75,9 +75,15 @@ const initialCourseFormState = {
   faculty: '',
   capacity: '',
   duration: '',
-  requirements: '',
+  requirements: '', // e.g. "At least C in Mathematics and 4 other credits"
   fee: '',
 };
+
+// --- Subject and Grade Selection for Requirements ---
+const availableSubjects = [
+  'Mathematics', 'English', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Economics', 'Business Studies', 'Accounting', 'Agriculture', 'Computer Studies', 'Development Studies', 'French', 'Sesotho', 'Physical Science', 'Additional Mathematics'
+];
+const availableGrades = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 // --- MAIN COMPONENT ---
 const InstitutionDashboard = () => {
@@ -388,6 +394,8 @@ const InstitutionDashboard = () => {
         duration: courseToEdit.duration,
         requirements: courseToEdit.requirements,
         fee: String(courseToEdit.fee),
+        requiredSubjects: courseToEdit.requirements?.subjects || [],
+        subjectGrades: courseToEdit.requirements?.grades || {},
       });
       setCourseDialog({ open: true, editingCourse: courseToEdit });
     } else {
@@ -405,6 +413,10 @@ const InstitutionDashboard = () => {
     const isEditing = !!courseDialog.editingCourse;
     const courseData = {
       ...courseForm,
+      requirements: {
+        subjects: courseForm.requiredSubjects || [],
+        grades: courseForm.subjectGrades || {}
+      },
       institutionId,
       capacity: parseInt(courseForm.capacity || 0),
       fee: parseFloat(courseForm.fee || 0),
@@ -413,8 +425,8 @@ const InstitutionDashboard = () => {
         : 0,
     };
 
-    if (!courseData.name || !courseData.faculty || courseData.capacity <= 0) {
-        showSnackbar('Name, Faculty, and Capacity are required.', 'error');
+    if (!courseData.name || !courseData.faculty || courseData.capacity <= 0 || !courseData.requirements) {
+        showSnackbar('Name, Faculty, Capacity, and Requirements are required.', 'error');
         return;
     }
 
@@ -758,17 +770,64 @@ const InstitutionDashboard = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Requirements (e.g., Min GPA 3.0)"
-                multiline
-                rows={3}
+                label="Course Requirements"
+                name="requirements"
                 value={courseForm.requirements}
                 onChange={(e) => setCourseForm({ ...courseForm, requirements: e.target.value })}
+                multiline
+                rows={2}
+                placeholder="E.g. At least C in Mathematics and 4 other credits (Lesotho/South Africa)"
+                required
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px'
                   }
                 }}
               />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Required Subjects</InputLabel>
+                <Select
+                  multiple
+                  value={courseForm.requiredSubjects || []}
+                  onChange={e => setCourseForm({ ...courseForm, requiredSubjects: e.target.value })}
+                  renderValue={selected => selected.join(', ')}
+                  sx={{ borderRadius: '8px' }}
+                >
+                  {availableSubjects.map(subject => (
+                    <MenuItem key={subject} value={subject}>{subject}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: secondaryColor }}>
+                  Set minimum grade for each required subject:
+                </Typography>
+                {courseForm.requiredSubjects && courseForm.requiredSubjects.length > 0 && courseForm.requiredSubjects.map(subject => (
+                  <Box key={subject} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                    <Typography sx={{ minWidth: 120 }}>{subject}</Typography>
+                    <Select
+                      value={courseForm.subjectGrades?.[subject] || ''}
+                      onChange={e => setCourseForm({
+                        ...courseForm,
+                        subjectGrades: {
+                          ...courseForm.subjectGrades,
+                          [subject]: e.target.value
+                        }
+                      })}
+                      displayEmpty
+                      sx={{ minWidth: 80, borderRadius: '8px' }}
+                    >
+                      <MenuItem value=""><em>Grade</em></MenuItem>
+                      {availableGrades.map(grade => (
+                        <MenuItem key={grade} value={grade}>{grade}</MenuItem>
+                      ))}
+                    </Select>
+                  </Box>
+                ))}
+              </Box>
             </Grid>
           </Grid>
         </DialogContent>
@@ -782,7 +841,7 @@ const InstitutionDashboard = () => {
           <Button
             onClick={handleSaveCourse}
             variant="contained"
-            disabled={!courseForm.name || !courseForm.faculty || !courseForm.capacity}
+            disabled={!courseForm.name || !courseForm.faculty || !courseForm.capacity || !courseForm.requirements}
             sx={{
               backgroundColor: accentColor,
               color: 'white',
@@ -1144,14 +1203,19 @@ const InstitutionDashboard = () => {
         >
           <Tab 
             label={
-              <Badge badgeContent={pendingApplicationsCount} color="warning">
+              <Badge badgeContent={pendingApplicationsCount} color="warning" sx={{
+                '& .MuiBadge-badge': {
+                  backgroundColor: accentColor,
+                  color: 'white',
+                }
+              }}>
                 Applications
               </Badge>
             } 
           />
-          <Tab label="Courses" />
-          <Tab label="Admissions" />
-          <Tab label="Institution Profile" />
+          <Tab label="Courses" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Admissions" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Institution Profile" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
         </Tabs>
 
         {/* --- Tab 1: Applications --- */}
@@ -1644,18 +1708,37 @@ const InstitutionDashboard = () => {
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <Button type="submit" variant="contained" disabled={prospectusSubmitting}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={prospectusSubmitting}
+                    sx={{
+                      backgroundColor: accentColor,
+                      color: 'white',
+                      borderRadius: '25px',
+                      px: 4,
+                      py: 1.5,
+                      fontWeight: '600',
+                      '&:hover': {
+                        backgroundColor: '#E55A2B'
+                      }
+                    }}
+                  >
                     {prospectusSubmitting ? 'Submitting...' : 'Submit Prospectus'}
                   </Button>
                 </Grid>
                 {prospectusSuccess && (
                   <Grid item xs={12}>
-                    <Alert severity="success">{prospectusSuccess}</Alert>
+                    <Alert severity="success" sx={{ mt: 2, backgroundColor: alpha(accentColor, 0.1), color: accentColor, borderRadius: '8px', fontWeight: '600' }}>
+                      {prospectusSuccess}
+                    </Alert>
                   </Grid>
                 )}
                 {prospectusError && (
                   <Grid item xs={12}>
-                    <Alert severity="error">{prospectusError}</Alert>
+                    <Alert severity="error" sx={{ mt: 2, backgroundColor: alpha(accentColor, 0.1), color: accentColor, borderRadius: '8px', fontWeight: '600' }}>
+                      {prospectusError}
+                    </Alert>
                   </Grid>
                 )}
               </Grid>

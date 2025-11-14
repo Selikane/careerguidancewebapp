@@ -54,7 +54,7 @@ import {
   notificationsService,
   demoStudentService
 } from '../services/studentService';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 // Color scheme matching the home page
@@ -90,7 +90,7 @@ const StudentDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [prospectuses, setProspectuses] = useState([]);
-  
+
   // Dialog states
   const [applyCourseDialog, setApplyCourseDialog] = useState({ open: false, course: null });
   const [applyJobDialog, setApplyJobDialog] = useState({ open: false, job: null });
@@ -108,6 +108,22 @@ const StudentDashboard = () => {
   });
 
   const [uploadFile, setUploadFile] = useState(null);
+
+  // --- Student Results State ---
+  const [studentResults, setStudentResults] = useState({
+    mathematics: '',
+    english: '',
+    science: '',
+    geography: '',
+    accounting: '',
+    economics: '',
+    businessStudies: '',
+    agriculture: '',
+    sesotho: '',
+    history: '',
+    other: ''
+  });
+  const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
 
   // Refs for unsubscribe functions
   const applicationsUnsubscribe = useRef(null);
@@ -517,7 +533,7 @@ const StudentDashboard = () => {
 
       await studentApplicationsService.applyForCourse(applicationData);
       setApplyCourseDialog({ open: false, course: null });
-      showSnackbar('Application submitted successfully!', 'success');
+      showSnackbar('Application submitted successfully! Please bring a certified photocopy of your transcript when collecting your admission letter.', 'success');
       
       // Refresh applications to show the new one
       setTimeout(() => {
@@ -620,6 +636,21 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleSaveResults = async () => {
+    try {
+      const studentDocRef = doc(db, 'students', studentId);
+      await updateDoc(studentDocRef, { results: studentResults });
+      setResultsDialogOpen(false);
+      showSnackbar('Results saved successfully!', 'success');
+      if (typeof initializeData === 'function') {
+        await initializeData(studentId);
+      }
+    } catch (error) {
+      console.error('Error saving results:', error);
+      showSnackbar('Error saving results', 'error');
+    }
+  };
+
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
   };
@@ -674,6 +705,30 @@ const StudentDashboard = () => {
     }
   };
 
+  // --- Filter Courses by Results ---
+  const filterCoursesByResults = (courses, results) => {
+    return courses.filter(course => {
+      if (!course.requirements) return true;
+      // Example IT Faculty requirement: 5 credits, at least C in Mathematics, and 4 other credits
+      if (course.faculty === 'IT') {
+        const mathGrade = results.mathematics.toUpperCase();
+        const credits = Object.values(results).filter(g => ['A','B','C'].includes(g.toUpperCase())).length;
+        return (['A','B','C'].includes(mathGrade) && credits >= 5);
+      }
+      // Add more faculty-specific requirements here
+      return true;
+    });
+  };
+
+  // --- Helper: Check if LGCSE transcripts are entered ---
+  const hasLGCSETranscripts = studentResults && Object.keys(studentResults).length > 0 && Object.values(studentResults).some(val => val && val.trim() !== '');
+
+  // --- Dropdowns for Student Results Entry ---
+  const availableSubjects = [
+    'Mathematics', 'English', 'Biology', 'Chemistry', 'Physics', 'Geography', 'History', 'Economics', 'Business Studies', 'Accounting', 'Agriculture', 'Computer Studies', 'Development Studies', 'French', 'Sesotho', 'Physical Science', 'Additional Mathematics'
+  ];
+  const availableGrades = ['A', 'B', 'C', 'D', 'E', 'F'];
+
   // Setup Wizard for new student
   if (initializing) {
     return (
@@ -721,6 +776,8 @@ const StudentDashboard = () => {
     );
   }
 
+  const filteredCourses = filterCoursesByResults(availableCourses, studentResults);
+
   return (
     <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       <Snackbar
@@ -730,6 +787,60 @@ const StudentDashboard = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ borderRadius: '8px' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Results Entry Dialog */}
+      <Dialog open={resultsDialogOpen} onClose={() => setResultsDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: accentColor, fontWeight: 'bold' }}>Enter Your LGCSE Results</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2}>
+            {availableSubjects.map((subject) => (
+              <Grid item xs={12} sm={6} key={subject}>
+                <Box sx={{ mb: 1 }}>
+                  {/* Only orange heading, no blue subject text */}
+                  <Typography variant="subtitle2" sx={{ color: accentColor, fontWeight: '600', mb: 0.5 }}>
+                    {subject}
+                  </Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>{subject}</InputLabel>
+                    <Select
+                      value={studentResults[subject] || ''}
+                      label={subject}
+                      onChange={e => setStudentResults({ ...studentResults, [subject]: e.target.value })}
+                      sx={{ borderRadius: '8px' }}
+                      displayEmpty
+                    >
+                      <MenuItem value=""><em></em></MenuItem>
+                      {availableGrades.map(grade => (
+                        <MenuItem key={grade} value={grade}>{grade}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResultsDialogOpen(false)} color="secondary">Cancel</Button>
+          <Button
+            onClick={handleSaveResults}
+            variant="contained"
+            sx={{ backgroundColor: accentColor, color: 'white', borderRadius: '25px', '&:hover': { backgroundColor: '#E55A2B' } }}
+          >
+            Save Results
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -1068,6 +1179,20 @@ const StudentDashboard = () => {
         </Box>
       </Box>
 
+      {/* Results Entry Button */}
+      <Button
+        variant="outlined"
+        sx={{ mb: 2 }}
+        onClick={() => setResultsDialogOpen(true)}
+      >
+        {hasLGCSETranscripts ? 'Update My Results' : 'Enter My Results'}
+      </Button>
+      {!hasLGCSETranscripts && (
+        <Typography variant="body2" sx={{ color: accentColor, mb: 2 }}>
+          Please enter your LGCSE transcripts to apply for courses.
+        </Typography>
+      )}
+
       {/* Main Content Tabs */}
       <Paper sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
         <Tabs 
@@ -1085,11 +1210,11 @@ const StudentDashboard = () => {
             }
           }}
         >
-          <Tab label="My Applications" />
-          <Tab label="Available Courses" />
-          <Tab label="Job Matches" />
-          <Tab label="Notifications" />
-          <Tab label="Profile & Documents" />
+          <Tab label="My Applications" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Available Courses" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Job Matches" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Notifications" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
+          <Tab label="Profile & Documents" sx={{ color: secondaryColor, '&.Mui-selected': { color: accentColor } }} />
         </Tabs>
 
         {/* My Applications Tab */}
@@ -1207,10 +1332,10 @@ const StudentDashboard = () => {
         {/* Available Courses Tab */}
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h6" gutterBottom sx={{ color: primaryColor, fontWeight: '600', mb: 3 }}>
-            Available Courses ({availableCourses.length})
+            Available Courses ({filteredCourses.length})
           </Typography>
           
-          {availableCourses.length === 0 ? (
+          {filteredCourses.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
@@ -1239,14 +1364,15 @@ const StudentDashboard = () => {
             </Card>
           ) : (
             <Grid container spacing={3}>
-              {availableCourses
+              {filteredCourses
                 .filter(course => course.name && course.institutionName)
                 .map((course) => {
                   const alreadyApplied = applications.some(app => app.courseId === course.id);
                   const institutionApplications = applications.filter(app => 
                     app.institutionId === course.institutionId
                   ).length;
-
+                  // --- Disable Apply if no transcripts ---
+                  const canApply = hasLGCSETranscripts && !alreadyApplied && institutionApplications < 2;
                   return (
                     <Grid item xs={12} sm={6} md={4} key={course.id}>
                       <Card 
@@ -1307,21 +1433,25 @@ const StudentDashboard = () => {
                             <Button
                               fullWidth
                               variant={alreadyApplied ? "outlined" : "contained"}
-                              disabled={alreadyApplied || institutionApplications >= 2}
+                              disabled={!canApply}
                               onClick={() => setApplyCourseDialog({ open: true, course })}
                               sx={{
-                                backgroundColor: alreadyApplied ? mediumGray : accentColor,
-                                color: alreadyApplied ? secondaryColor : 'white',
+                                backgroundColor: alreadyApplied || !hasLGCSETranscripts ? mediumGray : accentColor,
+                                color: alreadyApplied || !hasLGCSETranscripts ? secondaryColor : 'white',
                                 borderRadius: '25px',
                                 py: 1,
                                 '&:hover': {
-                                  backgroundColor: alreadyApplied ? mediumGray : '#E55A2B'
+                                  backgroundColor: alreadyApplied || !hasLGCSETranscripts ? mediumGray : '#E55A2B'
                                 }
                               }}
                             >
-                              {alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply Now'}
+                              {!hasLGCSETranscripts ? 'Enter Transcripts First' : alreadyApplied ? 'Applied' : institutionApplications >= 2 ? 'Limit Reached' : 'Apply Now'}
                             </Button>
-                            
+                            {!hasLGCSETranscripts && (
+                              <Typography variant="caption" sx={{ color: accentColor, mt: 1, display: 'block', textAlign: 'center' }}>
+                                You must enter your LGCSE transcripts before applying.
+                              </Typography>
+                            )}
                             {institutionApplications >= 2 && (
                               <Typography variant="caption" sx={{ color: accentColor, mt: 1, display: 'block', textAlign: 'center' }}>
                                 Maximum 2 applications per institution
@@ -1337,37 +1467,28 @@ const StudentDashboard = () => {
           )}
 
           <Typography variant="h6" gutterBottom sx={{ mt: 4, color: primaryColor, fontWeight: '600' }}>
-            Institution Prospectuses ({prospectuses.length})
+            My LGCSE Transcripts
           </Typography>
-          {prospectuses.length === 0 ? (
-            <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px', mt: 2 }}>
-              <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" sx={{ color: secondaryColor }}>
-                  No prospectus available for your institution.
+          <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px', mt: 2 }}>
+            <CardContent>
+              {hasLGCSETranscripts ? (
+                <Grid container spacing={2}>
+                  {Object.entries(studentResults).map(([subject, grade]) => (
+                    <Grid item xs={6} sm={4} md={3} key={subject}>
+                      <Box sx={{ p: 1, borderRadius: '8px', backgroundColor: lightGray, textAlign: 'center' }}>
+                        <Typography variant="body2" sx={{ color: secondaryColor, fontWeight: '600' }}>{subject}</Typography>
+                        <Typography variant="h6" sx={{ color: accentColor }}>{grade}</Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Typography variant="body2" sx={{ color: accentColor }}>
+                  No transcripts entered yet. Please enter your results above.
                 </Typography>
-              </CardContent>
-            </Card>
-          ) : (
-            <List sx={{ mt: 2 }}>
-              {prospectuses.map((prospectus) => (
-                <ListItem key={prospectus.id} divider>
-                  <ListItemText
-                    primary={<Typography sx={{ color: primaryColor }}>{prospectus.title} ({prospectus.year})</Typography>}
-                    secondary={<Typography sx={{ color: secondaryColor }}>{prospectus.description}</Typography>}
-                  />
-                  <Button
-                    size="small"
-                    href={prospectus.documentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{ color: accentColor }}
-                  >
-                    View Document
-                  </Button>
-                </ListItem>
-              ))}
-            </List>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </TabPanel>
 
         {/* Job Matches Tab */}
