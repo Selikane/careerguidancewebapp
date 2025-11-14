@@ -14,11 +14,6 @@ import {
   Card,
   alpha
 } from '@mui/material';
-import {
-  School,
-  Business,
-  Person
-} from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -211,10 +206,10 @@ const Register = () => {
             </Typography>
             <Grid container spacing={3}>
               {[
-                { type: 'student', label: 'Student', icon: Person, description: 'Apply to courses and track your applications' },
-                { type: 'institution', label: 'Institution', icon: School, description: 'Manage courses and review student applications' },
-                { type: 'company', label: 'Company', icon: Business, description: 'Post opportunities and connect with talent' }
-              ].map(({ type, label, icon: Icon, description }) => (
+                { type: 'student', label: 'Student', description: 'Apply to courses and track your applications' },
+                { type: 'institution', label: 'Institution', description: 'Manage courses and review student applications' },
+                { type: 'company', label: 'Company', description: 'Post opportunities and connect with talent' }
+              ].map(({ type, label, description }) => (
                 <Grid item xs={12} md={4} key={type}>
                   <Card
                     sx={{
@@ -234,7 +229,6 @@ const Register = () => {
                     onClick={() => setFormData(prev => ({ ...prev, userType: type }))}
                   >
                     <Box sx={{ textAlign: 'center' }}>
-                      <Icon sx={{ fontSize: 48, mb: 2, color: formData.userType === type ? accentColor : primaryColor }} />
                       <Typography variant="h6" gutterBottom sx={{ fontWeight: '600' }}>
                         {label}
                       </Typography>

@@ -22,7 +22,7 @@ import {
   Snackbar,
   alpha
 } from '@mui/material';
-import { Search, School, LocationOn, People, Login } from '@mui/icons-material';
+import { Search, Login } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
 import { collection, getDocs, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -355,8 +355,7 @@ const Courses = () => {
                     {course.name}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <School sx={{ fontSize: 18, mr: 1, color: accentColor }} />
+                  <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color={secondaryColor}>
                       {getInstitutionName(course.institutionId)}
                     </Typography>
@@ -408,7 +407,6 @@ const Courses = () => {
                     borderRadius: '8px'
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <People sx={{ fontSize: 16, mr: 1, color: accentColor }} />
                       <Typography variant="body2" sx={{ color: secondaryColor }}>
                         {course.currentApplications || 0}/{course.capacity}
                       </Typography>

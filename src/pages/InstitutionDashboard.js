@@ -34,22 +34,12 @@ import {
   alpha
 } from '@mui/material';
 import {
-  School,
-  Group,
-  Description,
   Add,
   CheckCircle,
   Cancel,
-  Pending,
   Edit,
   Delete,
-  Science,
-  Business,
-  Engineering,
-  Settings,
   Refresh,
-  Email,
-  Phone,
 } from '@mui/icons-material';
 import {
   applicationsService,
@@ -139,18 +129,6 @@ const InstitutionDashboard = () => {
     website: '',
     type: 'university',
   });
-
-  // Faculty Icon Mapping
-  const facultyIcons = {
-    'Science & Technology': Science,
-    'Business School': Business,
-    'Engineering': Engineering,
-    'Medicine': School,
-    'Arts & Humanities': School,
-    'Social Sciences': School,
-    'Education': School,
-    'Law': School,
-  };
 
   // --- EFFECT HOOKS (Initialization) ---
   useEffect(() => {
@@ -262,14 +240,13 @@ const InstitutionDashboard = () => {
 
   const getStatusChip = (status) => {
     const statusConfig = {
-      admitted: { color: 'success', label: 'Admitted', icon: <CheckCircle /> },
-      pending: { color: 'warning', label: 'Pending', icon: <Pending /> },
-      rejected: { color: 'error', label: 'Rejected', icon: <Cancel /> },
+      admitted: { color: 'success', label: 'Admitted' },
+      pending: { color: 'warning', label: 'Pending' },
+      rejected: { color: 'error', label: 'Rejected' },
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
       <Chip
-        icon={config.icon}
         label={config.label}
         color={config.color}
         size="small"
@@ -519,7 +496,6 @@ const InstitutionDashboard = () => {
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Card sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <School sx={{ fontSize: 64, color: accentColor, mb: 3 }} />
             <Typography variant="h4" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
               Welcome! Let's Set Up Your Institution
             </Typography>
@@ -1176,7 +1152,6 @@ const InstitutionDashboard = () => {
           {applications.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Description sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Applications Yet
                 </Typography>
@@ -1224,12 +1199,9 @@ const InstitutionDashboard = () => {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Email fontSize="small" sx={{ color: accentColor }} />
-                            <Typography variant="caption" sx={{ color: secondaryColor }}>
-                              {app.studentEmail}
-                            </Typography>
-                          </Box>
+                          <Typography variant="caption" sx={{ color: secondaryColor }}>
+                            {app.studentEmail}
+                          </Typography>
                         </Box>
                       </TableCell>
                       <TableCell sx={{ color: secondaryColor }}>
@@ -1306,7 +1278,6 @@ const InstitutionDashboard = () => {
           {courses.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <School sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Courses Added Yet
                 </Typography>
@@ -1334,7 +1305,6 @@ const InstitutionDashboard = () => {
           ) : (
             <Grid container spacing={2}>
               {courses.map((course) => {
-                const FacultyIcon = facultyIcons[course.faculty] || School;
                 const capacityWarning = course.currentApplications / course.capacity > 0.8;
                 const isFull = course.currentApplications >= course.capacity;
                 
@@ -1357,16 +1327,13 @@ const InstitutionDashboard = () => {
                     >
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                            <FacultyIcon sx={{ color: accentColor, mr: 2, mt: 0.5 }} />
-                            <Box>
-                              <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
-                                {course.name}
-                              </Typography>
-                              <Typography sx={{ color: secondaryColor, fontWeight: '300' }} gutterBottom>
-                                {course.faculty}
-                              </Typography>
-                            </Box>
+                          <Box>
+                            <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
+                              {course.name}
+                            </Typography>
+                            <Typography sx={{ color: secondaryColor, fontWeight: '300' }} gutterBottom>
+                              {course.faculty}
+                            </Typography>
                           </Box>
                           <Box>
                             <IconButton
@@ -1574,7 +1541,6 @@ const InstitutionDashboard = () => {
                   </Box>
                   <Button 
                     variant="contained" 
-                    startIcon={<Settings />}
                     onClick={() => setFacultyDialog({ open: true, newFacultyName: '' })}
                     sx={{
                       backgroundColor: accentColor,

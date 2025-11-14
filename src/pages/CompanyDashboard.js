@@ -38,15 +38,9 @@ import {
   alpha
 } from '@mui/material';
 import {
-  Business,
-  Work,
-  Group,
   Add,
-  TrendingUp,
-  Schedule,
   Edit,
   Close,
-  Visibility,
   Refresh
 } from '@mui/icons-material';
 import { AuthContext } from '../contexts/AuthContext';
@@ -553,7 +547,6 @@ const CompanyDashboard = () => {
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Card sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Business sx={{ fontSize: 64, color: accentColor, mb: 3 }} />
             <Typography variant="h4" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
               Welcome to Company Dashboard
             </Typography>
@@ -1138,7 +1131,6 @@ const CompanyDashboard = () => {
           {jobs.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Work sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Job Postings Yet
                 </Typography>
@@ -1269,7 +1261,6 @@ const CompanyDashboard = () => {
           {applicants.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Group sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Applicants Yet
                 </Typography>
@@ -1368,7 +1359,6 @@ const CompanyDashboard = () => {
           {jobs.filter(job => job.status === 'active').length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <TrendingUp sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Active Jobs
                 </Typography>

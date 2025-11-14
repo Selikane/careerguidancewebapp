@@ -20,8 +20,6 @@ import {
 } from '@mui/material';
 import { 
   Search, 
-  Business, 
-  LocationOn, 
   AttachMoney, 
   Schedule,
   Work 
@@ -384,15 +382,13 @@ const Jobs = () => {
                   </Box>
                   
                   {/* Company and Location */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Business sx={{ fontSize: 18, mr: 1, color: accentColor }} />
+                  <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" sx={{ color: secondaryColor }}>
                       {job.company}
                     </Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <LocationOn sx={{ fontSize: 18, mr: 1, color: accentColor }} />
+                  <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" sx={{ color: secondaryColor }}>
                       {job.location}
                     </Typography>
@@ -434,8 +430,7 @@ const Jobs = () => {
                   </Box>
 
                   {/* Salary */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <AttachMoney sx={{ fontSize: 18, mr: 1, color: accentColor }} />
+                  <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" sx={{ color: secondaryColor, fontWeight: '500' }}>
                       {job.salary}
                     </Typography>

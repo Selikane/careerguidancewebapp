@@ -15,15 +15,8 @@ import {
   Stack
 } from '@mui/material';
 import {
-  School,
-  Work,
-  Business,
   TrendingUp,
-  ArrowForward,
-  Search,
-  Map,
-  Build,
-  Analytics
+  ArrowForward
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,7 +36,6 @@ const Home = () => {
 
   const features = [
     {
-      icon: <Search sx={{ fontSize: 40 }} />,
       title: 'Course Discovery',
       description: 'Find educational programs that match your academic goals and career aspirations with our comprehensive database.',
       action: 'Explore Courses',
@@ -51,7 +43,6 @@ const Home = () => {
       delay: 0
     },
     {
-      icon: <Map sx={{ fontSize: 40 }} />,
       title: 'Career Pathways',
       description: 'Navigate your professional journey with guided career roadmaps and personalized opportunity matching.',
       action: 'View Pathways',
@@ -59,7 +50,6 @@ const Home = () => {
       delay: 100
     },
     {
-      icon: <Build sx={{ fontSize: 40 }} />,
       title: 'Institution Portal',
       description: 'Comprehensive platform for educational institutions to manage student engagement and admissions processes.',
       action: 'Access Portal',
@@ -67,7 +57,6 @@ const Home = () => {
       delay: 200
     },
     {
-      icon: <Analytics sx={{ fontSize: 40 }} />,
       title: 'Skill Development',
       description: 'Track your progress and identify opportunities for professional growth through detailed analytics.',
       action: 'View Insights',
@@ -283,16 +272,6 @@ const Home = () => {
                       height: '100%'
                     }}>
                       <Stack spacing={4} height="100%" justifyContent="space-between">
-                        {/* Icon */}
-                        <Box sx={{ 
-                          color: '#FF6B35', 
-                          display: 'flex', 
-                          justifyContent: 'center',
-                          height: '80px',
-                          alignItems: 'center'
-                        }}>
-                          {feature.icon}
-                        </Box>
                         
                         {/* Content */}
                         <Stack spacing={3} flexGrow={1} textAlign="center" justifyContent="space-between">

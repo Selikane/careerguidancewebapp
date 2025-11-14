@@ -622,15 +622,14 @@ const StudentDashboard = () => {
 
   const getStatusChip = (status) => {
     const statusConfig = {
-      admitted: { color: 'success', label: 'Admitted', icon: <CheckCircle /> },
-      pending: { color: 'warning', label: 'Pending', icon: <Pending /> },
-      rejected: { color: 'error', label: 'Rejected', icon: <Cancel /> },
-      withdrawn: { color: 'default', label: 'Withdrawn', icon: <Cancel /> }
+      admitted: { color: 'success', label: 'Admitted' },
+      pending: { color: 'warning', label: 'Pending' },
+      rejected: { color: 'error', label: 'Rejected' },
+      withdrawn: { color: 'default', label: 'Withdrawn' }
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
       <Chip
-        icon={config.icon}
         label={config.label}
         color={config.color}
         size="small"
@@ -1393,7 +1392,6 @@ const StudentDashboard = () => {
                           {job.location} • {job.type}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                          <TrendingUp fontSize="small" sx={{ color: accentColor }} />
                           <Typography variant="body2" sx={{ color: secondaryColor }}>Match Score: {job.matchScore}%</Typography>
                         </Box>
                         <LinearProgress 
