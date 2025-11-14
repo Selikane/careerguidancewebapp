@@ -41,7 +41,7 @@ const Login = () => {
   // Auto-redirect if user is already logged in or after successful login
   useEffect(() => {
     if (user) {
-      console.log('🎯 User detected, starting auto-redirect...');
+      console.log('User detected, starting auto-redirect...');
       handleAutoRedirect(user.uid);
     }
   }, [user]);
@@ -49,14 +49,14 @@ const Login = () => {
   // Handle successful login status
   useEffect(() => {
     if (loginStatus === 'success' && user) {
-      console.log('✅ Login successful, triggering auto-redirect...');
+      console.log('Login successful, triggering auto-redirect...');
       handleAutoRedirect(user.uid);
     }
   }, [loginStatus, user]);
 
   const determineUserType = async (userId) => {
     try {
-      console.log('🔄 Determining user type for:', userId);
+      console.log('Determining user type for:', userId);
       
       // Check multiple collections to determine user type
       const collectionsToCheck = ['students', 'institutions', 'companies', 'admins', 'users'];
@@ -66,7 +66,7 @@ const Login = () => {
           const userDoc = await getDoc(doc(db, collection, userId));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            console.log(`✅ Found user in ${collection}:`, userData);
+            console.log(`Found user in ${collection}:`, userData);
             
             // Return user type based on collection or userData
             switch (collection) {
@@ -85,15 +85,15 @@ const Login = () => {
             }
           }
         } catch (error) {
-          console.log(`⚠️ No user found in ${collection} or error:`, error.message);
+          console.log(`No user found in ${collection} or error:`, error.message);
         }
       }
       
-      console.log('🔍 User not found in standard collections, defaulting to student');
+      console.log('User not found in standard collections, defaulting to student');
       return 'student';
       
     } catch (error) {
-      console.error('❌ Error determining user type:', error);
+      console.error('Error determining user type:', error);
       return 'student';
     }
   };
@@ -102,41 +102,41 @@ const Login = () => {
     if (redirecting) return; // Prevent multiple redirects
     
     setRedirecting(true);
-    console.log('🚀 Starting auto-redirect process...');
+    console.log('Starting auto-redirect process...');
     
     try {
       const userType = await determineUserType(userId);
       
-      console.log('🎯 Redirecting user type:', userType);
+      console.log('Redirecting user type:', userType);
       
       // Small delay to ensure everything is loaded
       setTimeout(() => {
         // Redirect based on user type
         switch (userType) {
           case 'student':
-            console.log('📚 Redirecting to student dashboard');
+            console.log('Redirecting to student dashboard');
             navigate('/student-dashboard', { replace: true });
             break;
           case 'institution':
-            console.log('🏫 Redirecting to institution dashboard');
+            console.log('Redirecting to institution dashboard');
             navigate('/institution-dashboard', { replace: true });
             break;
           case 'company':
-            console.log('💼 Redirecting to company dashboard');
+            console.log('Redirecting to company dashboard');
             navigate('/company-dashboard', { replace: true });
             break;
           case 'admin':
-            console.log('👨‍💼 Redirecting to admin dashboard');
+            console.log('Redirecting to admin dashboard');
             navigate('/admin-dashboard', { replace: true });
             break;
           default:
-            console.log('🎓 Default redirect to student dashboard');
+            console.log('Default redirect to student dashboard');
             navigate('/student-dashboard', { replace: true });
         }
       }, 500); // Small delay to ensure smooth transition
       
     } catch (error) {
-      console.error('❌ Error during auto-redirect:', error);
+      console.error('Error during auto-redirect:', error);
       // Fallback to student dashboard
       navigate('/student-dashboard', { replace: true });
     }
@@ -157,12 +157,12 @@ const Login = () => {
     setRedirecting(false);
 
     try {
-      console.log('🔐 Attempting login...');
+      console.log('Attempting login...');
       await login(formData.email, formData.password);
-      console.log('✅ Login method completed successfully');
+      console.log('Login method completed successfully');
       // The useEffect will handle the redirection automatically
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('Login error:', error);
       setError(error.message);
       setLoading(false);
     }

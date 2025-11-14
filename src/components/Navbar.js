@@ -27,79 +27,122 @@ import {
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-/**
- * Navbar component: responsive application header with navigation links
- * and user actions (profile, dashboard, logout). Uses Material UI components.
- */
 const Navbar = () => {
   const { user, userType, logout } = useContext(AuthContext);
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
+  
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Color tokens used for styling the navbar.
+  // Color scheme matching the home page
   const primaryColor = '#000000';
   const accentColor = '#FF6B35';
 
-  // Open the user menu anchor
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  // Close any open menus/drawers
   const handleClose = () => {
     setAnchorEl(null);
   };
 
-  // Log out the current user, close menus and navigate home
   const handleLogout = () => {
     logout();
     handleClose();
     navigate('/');
   };
 
-  // Navigate to a path and close mobile menu if open
   const handleNavigation = (path) => {
     navigate(path);
     setMobileMenuOpen(false);
     handleClose();
   };
 
-  // Static navigation items displayed in the navbar
   const menuItems = [
     { text: 'Home', icon: <Home />, path: '/' },
     { text: 'Courses', icon: <Class />, path: '/courses' },
     { text: 'Jobs', icon: <Work />, path: '/jobs' },
   ];
 
-  // Render a dashboard button specific to the authenticated user's type.
-  // Uses the new route paths (e.g. /student-dashboard) to match the app routing.
   const renderUserSpecificMenu = () => {
     if (!user) return null;
 
-    const dashboardPath = `/${userType}-dashboard`; // e.g. /student-dashboard
-
-    return (
-      <Button
-        color="inherit"
-        onClick={() => handleNavigation(dashboardPath)}
-        sx={{
-          mx: 1,
-          color: 'white',
-          '&:hover': {
-            backgroundColor: alpha(accentColor, 0.1),
-            color: accentColor,
-          },
-        }}
-      >
-        Dashboard
-      </Button>
-    );
+    switch (userType) {
+      case 'student':
+        return (
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/student/dashboard')}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
+          >
+            Dashboard
+          </Button>
+        );
+      case 'institution':
+        return (
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/institution/dashboard')}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
+          >
+            Dashboard
+          </Button>
+        );
+      case 'company':
+        return (
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/company/dashboard')}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
+          >
+            Dashboard
+          </Button>
+        );
+      case 'admin':
+        return (
+          <Button 
+            color="inherit" 
+            onClick={() => handleNavigation('/admin/dashboard')}
+            sx={{ 
+              mx: 1,
+              color: 'white',
+              '&:hover': {
+                backgroundColor: alpha(accentColor, 0.1),
+                color: accentColor
+              }
+            }}
+          >
+            Dashboard
+          </Button>
+        );
+      default:
+        return null;
+    }
   };
 
-  // Mobile drawer menu
   const renderMobileMenu = () => (
     <Drawer
       anchor="left"
@@ -108,8 +151,8 @@ const Navbar = () => {
       PaperProps={{
         sx: {
           backgroundColor: primaryColor,
-          color: 'white',
-        },
+          color: 'white'
+        }
       }}
     >
       <Box sx={{ width: 250 }} role="presentation">
@@ -122,69 +165,68 @@ const Navbar = () => {
               sx={{
                 '&:hover': {
                   backgroundColor: alpha(accentColor, 0.1),
-                  color: accentColor,
-                },
+                  color: accentColor
+                }
               }}
             >
               <ListItemText primary={item.text} />
             </ListItem>
           ))}
-
-          {user ? (
-            <> 
-              <ListItem
-                button
-                onClick={() => handleNavigation(`/${userType}-dashboard`)}
-                sx={{
-                  '&:hover': {
-                    backgroundColor: alpha(accentColor, 0.1),
-                    color: accentColor,
-                  },
-                }}
-              >
-                <ListItemText primary="My Dashboard" />
-              </ListItem>
-
-              <ListItem
-                button
-                onClick={handleLogout}
-                sx={{
-                  '&:hover': {
-                    backgroundColor: alpha(accentColor, 0.1),
-                    color: accentColor,
-                  },
-                }}
-              >
-                <ListItemText primary="Logout" />
-              </ListItem>
-            </>
-          ) : (
-            <> 
-              <ListItem
-                button
+          {user && (
+            <ListItem 
+              button 
+              onClick={() => handleNavigation(`/${userType}/dashboard`)}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(accentColor, 0.1),
+                  color: accentColor
+                }
+              }}
+            >
+              <ListItemText primary="My Dashboard" />
+            </ListItem>
+          )}
+          {!user && (
+            <>
+              <ListItem 
+                button 
                 onClick={() => handleNavigation('/login')}
                 sx={{
                   '&:hover': {
                     backgroundColor: alpha(accentColor, 0.1),
-                    color: accentColor,
-                  },
+                    color: accentColor
+                  }
                 }}
               >
                 <ListItemText primary="Login" />
               </ListItem>
-              <ListItem
-                button
+              <ListItem 
+                button 
                 onClick={() => handleNavigation('/register')}
                 sx={{
                   '&:hover': {
                     backgroundColor: alpha(accentColor, 0.1),
-                    color: accentColor,
-                  },
+                    color: accentColor
+                  }
                 }}
               >
                 <ListItemText primary="Register" />
               </ListItem>
             </>
+          )}
+          {user && (
+            <ListItem 
+              button 
+              onClick={handleLogout}
+              sx={{
+                '&:hover': {
+                  backgroundColor: alpha(accentColor, 0.1),
+                  color: accentColor
+                }
+              }}
+            >
+              <ListItemText primary="Logout" />
+            </ListItem>
           )}
         </List>
       </Box>
@@ -192,31 +234,38 @@ const Navbar = () => {
   );
 
   return (
-    <> 
-      <AppBar
-        position="static"
-        sx={{
+    <>
+      <AppBar 
+        position="static" 
+        sx={{ 
           backgroundColor: primaryColor,
           borderBottom: `1px solid ${alpha(accentColor, 0.2)}`,
-          boxShadow: 'none',
+          boxShadow: 'none'
         }}
       >
         <Toolbar>
-          {/* Clickable logo and title */}
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexGrow: 1 }}
-            onClick={() => handleNavigation('/')
+          {/* Logo on Left */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              cursor: 'pointer',
+              flexGrow: 1
+            }}
+            onClick={() => handleNavigation('/')}
           >
             <School sx={{ mr: 1, color: accentColor }} />
             <Typography
               variant="h6"
               component="div"
-              sx={{
+              sx={{ 
                 color: 'white',
                 fontWeight: '600',
                 fontSize: { xs: '1rem', sm: '1.25rem' },
-                '&:hover': { color: accentColor },
-                transition: 'color 0.3s ease',
+                '&:hover': {
+                  color: accentColor
+                },
+                transition: 'color 0.3s ease'
               }}
             >
               Career Guidance Lesotho
@@ -224,7 +273,7 @@ const Navbar = () => {
           </Box>
 
           {isMobile ? (
-            <> 
+            <>
               <IconButton
                 color="inherit"
                 onClick={() => setMobileMenuOpen(true)}
@@ -232,8 +281,8 @@ const Navbar = () => {
                   color: 'white',
                   '&:hover': {
                     color: accentColor,
-                    backgroundColor: alpha(accentColor, 0.1),
-                  },
+                    backgroundColor: alpha(accentColor, 0.1)
+                  }
                 }}
               >
                 <MenuIcon />
@@ -241,21 +290,23 @@ const Navbar = () => {
               {renderMobileMenu()}
             </>
           ) : (
-            <> 
+            <>
+              {/* Navigation Links and User Actions on Right */}
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {/* Navigation Links */}
                 {menuItems.map((item) => (
                   <Button
                     key={item.text}
                     color="inherit"
                     onClick={() => handleNavigation(item.path)}
-                    sx={{
+                    sx={{ 
                       mx: 1,
                       color: 'white',
                       '&:hover': {
                         backgroundColor: alpha(accentColor, 0.1),
-                        color: accentColor,
+                        color: accentColor
                       },
-                      transition: 'all 0.3s ease',
+                      transition: 'all 0.3s ease'
                     }}
                   >
                     {item.text}
@@ -264,7 +315,7 @@ const Navbar = () => {
 
                 {renderUserSpecificMenu()}
 
-                {/* User account actions: profile menu when signed in, or auth buttons when not */}
+                {/* User Actions */}
                 {user ? (
                   <div>
                     <IconButton
@@ -278,49 +329,97 @@ const Navbar = () => {
                         color: 'white',
                         '&:hover': {
                           color: accentColor,
-                          backgroundColor: alpha(accentColor, 0.1),
-                        },
+                          backgroundColor: alpha(accentColor, 0.1)
+                        }
                       }}
                     >
-                      <Avatar
-                        sx={{ width: 32, height: 32, backgroundColor: accentColor, color: 'white', fontWeight: 'bold' }}
-                      >
-                        {user.email ? user.email.charAt(0).toUpperCase() : ''}
+                      <Avatar sx={{ 
+                        width: 32, 
+                        height: 32, 
+                        backgroundColor: accentColor,
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}>
+                        {user.email.charAt(0).toUpperCase()}
                       </Avatar>
                     </IconButton>
                     <Menu
                       id="menu-appbar"
                       anchorEl={anchorEl}
-                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      anchorOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
                       keepMounted
-                      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
                       open={Boolean(anchorEl)}
                       onClose={handleClose}
                       PaperProps={{
-                        sx: { backgroundColor: primaryColor, color: 'white', border: `1px solid ${alpha(accentColor, 0.2)}` },
+                        sx: {
+                          backgroundColor: primaryColor,
+                          color: 'white',
+                          border: `1px solid ${alpha(accentColor, 0.2)}`
+                        }
                       }}
                     >
-                      <MenuItem onClick={() => handleNavigation(`/${userType}-profile`)} sx={{ '&:hover': { backgroundColor: alpha(accentColor, 0.1), color: accentColor } }}>
+                      <MenuItem 
+                        onClick={() => handleNavigation(`/${userType}/profile`)}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1),
+                            color: accentColor
+                          }
+                        }}
+                      >
                         Profile
                       </MenuItem>
-                      <MenuItem onClick={handleLogout} sx={{ '&:hover': { backgroundColor: alpha(accentColor, 0.1), color: accentColor } }}>
+                      <MenuItem 
+                        onClick={handleLogout}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(accentColor, 0.1),
+                            color: accentColor
+                          }
+                        }}
+                      >
                         Logout
                       </MenuItem>
                     </Menu>
                   </div>
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Button
-                      color="inherit"
+                    <Button 
+                      color="inherit" 
                       onClick={() => handleNavigation('/login')}
-                      sx={{ mx: 1, color: 'white', '&:hover': { backgroundColor: alpha(accentColor, 0.1), color: accentColor }, transition: 'all 0.3s ease' }}
+                      sx={{ 
+                        mx: 1,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: alpha(accentColor, 0.1),
+                          color: accentColor
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
                     >
                       Login
                     </Button>
-                    <Button
+                    <Button 
                       variant="outlined"
                       onClick={() => handleNavigation('/register')}
-                      sx={{ mx: 1, borderColor: accentColor, color: accentColor, '&:hover': { backgroundColor: accentColor, color: 'white', borderColor: accentColor }, transition: 'all 0.3s ease' }}
+                      sx={{ 
+                        mx: 1,
+                        borderColor: accentColor,
+                        color: accentColor,
+                        '&:hover': {
+                          backgroundColor: accentColor,
+                          color: 'white',
+                          borderColor: accentColor
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
                     >
                       Register
                     </Button>

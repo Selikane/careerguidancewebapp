@@ -174,14 +174,14 @@ const InstitutionDashboard = () => {
 
   const initializeData = async (uid) => {
     setLoading(true);
-    console.log('🚀 Initializing institution data for:', uid);
+    console.log('Initializing institution data for:', uid);
 
     try {
       // 1. First load institution profile to check if setup is needed
       const institutionUnsubscribe = institutionService.getInstitution(uid, (snapshot) => {
         if (snapshot.exists()) {
           const institutionData = { id: snapshot.id, ...snapshot.data() };
-          console.log('✅ Institution profile loaded:', institutionData);
+          console.log('Institution profile loaded:', institutionData);
           setInstitution(institutionData);
           setProfileForm(institutionData);
           
@@ -190,7 +190,7 @@ const InstitutionDashboard = () => {
           }
           setInitializing(false);
         } else {
-          console.log('❌ No institution profile found - showing setup wizard');
+          console.log('No institution profile found - showing setup wizard');
           setInitializing(true);
         }
       });
@@ -201,7 +201,7 @@ const InstitutionDashboard = () => {
           id: doc.id,
           ...doc.data(),
         })) : [];
-        console.log('📚 Courses updated:', coursesData.length);
+        console.log('Courses updated:', coursesData.length);
         setCourses(coursesData);
       });
 
@@ -210,7 +210,7 @@ const InstitutionDashboard = () => {
           id: doc.id,
           ...doc.data(),
         })) : [];
-        console.log('📋 Applications updated:', applicationsData.length);
+        console.log('Applications updated:', applicationsData.length);
         setApplications(applicationsData);
       });
 
@@ -223,7 +223,7 @@ const InstitutionDashboard = () => {
         if (applicationsUnsubscribe) applicationsUnsubscribe();
       };
     } catch (error) {
-      console.error('❌ Error initializing data:', error);
+      console.error('Error initializing data:', error);
       setLoading(false);
       showSnackbar('Failed to load dashboard data. Check console.', 'error');
     }

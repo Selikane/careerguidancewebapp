@@ -23,7 +23,7 @@ const handleFirestoreError = (error, defaultMessage = 'Firestore operation faile
 export const applicationsService = {
   getApplications: (institutionId, callback) => {
     try {
-      console.log('🔍 Querying courseApplications for institution:', institutionId);
+      console.log('Querying courseApplications for institution:', institutionId);
       
       const q = query(
         collection(db, 'courseApplications'), // CHANGED: Using courseApplications
@@ -32,16 +32,16 @@ export const applicationsService = {
       
       return onSnapshot(q, 
         (snapshot) => {
-          console.log('📥 Course Applications snapshot received:', snapshot.docs?.length, 'documents');
+          console.log('Course Applications snapshot received:', snapshot.docs?.length, 'documents');
           callback(snapshot);
         },
         (error) => {
-          console.error('❌ Error in courseApplications listener:', error);
+          console.error('Error in courseApplications listener:', error);
           callback({ docs: [] }); // Return empty array on error
         }
       );
     } catch (error) {
-      console.error('❌ Error setting up courseApplications listener:', error);
+      console.error('Error setting up courseApplications listener:', error);
       callback({ docs: [] });
       return () => {}; // Return no-op function
     }
@@ -56,9 +56,9 @@ export const applicationsService = {
         ...extraData,
         updatedAt: serverTimestamp()
       });
-      console.log('✅ Course Application status updated:', applicationId, status);
+      console.log('Course Application status updated:', applicationId, status);
     } catch (error) {
-      console.error('❌ Error updating course application:', error);
+      console.error('Error updating course application:', error);
       if (error.code === 'not-found') {
         console.log('Course Application not found, creating placeholder...');
         const applicationRef = doc(db, 'courseApplications', applicationId);
@@ -98,11 +98,11 @@ export const coursesService = {
       
       return onSnapshot(q, 
         (snapshot) => {
-          console.log('📚 Courses snapshot received:', snapshot.docs?.length, 'documents');
+          console.log('Courses snapshot received:', snapshot.docs?.length, 'documents');
           callback(snapshot);
         },
         (error) => {
-          console.error('❌ Error in courses listener:', error);
+          console.error('Error in courses listener:', error);
           callback({ docs: [] });
         }
       );
@@ -119,7 +119,7 @@ export const coursesService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      console.log('✅ Course added:', docRef.id);
+      console.log('Course added:', docRef.id);
       return docRef;
     } catch (error) {
       handleFirestoreError(error, 'Failed to add course');
@@ -133,7 +133,7 @@ export const coursesService = {
         ...courseData,
         updatedAt: serverTimestamp()
       });
-      console.log('✅ Course updated:', courseId);
+      console.log('Course updated:', courseId);
     } catch (error) {
       handleFirestoreError(error, 'Failed to update course');
     }
@@ -143,7 +143,7 @@ export const coursesService = {
     try {
       const courseRef = doc(db, 'courses', courseId);
       await deleteDoc(courseRef);
-      console.log('✅ Course deleted:', courseId);
+      console.log('Course deleted:', courseId);
     } catch (error) {
       handleFirestoreError(error, 'Failed to delete course');
     }
@@ -158,11 +158,11 @@ export const institutionService = {
       
       return onSnapshot(institutionRef, 
         (snapshot) => {
-          console.log('🏫 Institution snapshot received:', snapshot.exists());
+          console.log('Institution snapshot received:', snapshot.exists());
           callback(snapshot);
         },
         (error) => {
-          console.error('❌ Error in institution listener:', error);
+          console.error('Error in institution listener:', error);
         }
       );
     } catch (error) {
@@ -185,7 +185,7 @@ export const institutionService = {
       };
       
       await setDoc(institutionRef, defaultInstitution);
-      console.log('✅ Default institution created:', institutionId);
+      console.log('Default institution created:', institutionId);
       return defaultInstitution;
     } catch (error) {
       handleFirestoreError(error, 'Failed to create institution profile');
@@ -199,7 +199,7 @@ export const institutionService = {
         ...profileData,
         updatedAt: serverTimestamp()
       }, { merge: true });
-      console.log('✅ Institution profile updated:', institutionId);
+      console.log('Institution profile updated:', institutionId);
     } catch (error) {
       handleFirestoreError(error, 'Failed to update institution profile');
     }
@@ -218,7 +218,7 @@ export const admissionsService = {
         status: 'published',
         results: {}
       });
-      console.log('✅ Admissions published:', docRef.id);
+      console.log('Admissions published:', docRef.id);
       return docRef;
     } catch (error) {
       handleFirestoreError(error, 'Failed to publish admissions');
@@ -235,7 +235,7 @@ export const admissionsService = {
 export const demoService = {
   createDemoData: async (institutionId, institutionName = 'Demo Institution') => {
     try {
-      console.log('🚀 Creating demo data for institution:', institutionId);
+      console.log('Creating demo data for institution:', institutionId);
       
       const coursesToCreate = [
         {
@@ -277,7 +277,7 @@ export const demoService = {
         createdCourses.push({ id: docRef.id, ...course });
       }
 
-      console.log('✅ Courses created:', createdCourses.length);
+      console.log('Courses created:', createdCourses.length);
 
       // 2. Create demo applications in courseApplications collection
       const demoApplications = [
@@ -326,10 +326,10 @@ export const demoService = {
         });
       }
 
-      console.log('✅ Demo course applications created:', demoApplications.length);
+      console.log('Demo course applications created:', demoApplications.length);
       return true;
     } catch (error) {
-      console.error('❌ Error creating demo data:', error);
+      console.error('Error creating demo data:', error);
       return false;
     }
   }

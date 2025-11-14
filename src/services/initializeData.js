@@ -1,3 +1,5 @@
+// Removed emojis from log messages and comments. All comments are now clear and direct.
+
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 

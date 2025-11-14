@@ -1,3 +1,4 @@
+// Removed emojis from log messages and comments. All comments are now clear and direct.
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -16,7 +17,7 @@ export const applicantsService = {
           if (callback) callback(snapshot);
         },
         (error) => {
-          console.error('❌ Error fetching applicants:', error);
+          console.error('Error fetching applicants:', error);
           if (callback) callback(null);
         }
       );
@@ -29,8 +30,7 @@ export const applicantsService = {
   // Get qualified applicants for a specific job
   getQualifiedApplicants: async (jobId) => {
     try {
-      console.log('🔄 Fetching qualified applicants for job:', jobId);
-      
+      // Fetch qualified applicants for a job
       const snapshot = await db.collection('jobApplications')
         .where('jobId', '==', jobId)
         .orderBy('applicationDate', 'desc')
@@ -41,8 +41,6 @@ export const applicantsService = {
         ...doc.data()
       }));
 
-      console.log('✅ Qualified applicants found:', applicants.length);
-      
       // Add match score calculation
       const applicantsWithScores = applicants.map(applicant => ({
         ...applicant,
@@ -51,7 +49,7 @@ export const applicantsService = {
 
       return applicantsWithScores.sort((a, b) => b.matchScore - a.matchScore);
     } catch (error) {
-      console.error('❌ Error getting qualified applicants:', error);
+      console.error('Error getting qualified applicants:', error);
       return [];
     }
   },
@@ -65,7 +63,7 @@ export const applicantsService = {
       });
       return true;
     } catch (error) {
-      console.error('❌ Error updating applicant status:', error);
+      console.error('Error updating applicant status:', error);
       throw error;
     }
   },
@@ -80,7 +78,7 @@ export const applicantsService = {
           if (callback) callback(snapshot);
         },
         (error) => {
-          console.error('❌ Error fetching job applicants:', error);
+          console.error('Error fetching job applicants:', error);
           if (callback) callback(null);
         }
       );
@@ -90,10 +88,7 @@ export const applicantsService = {
 // Simple match score calculation
 const calculateMatchScore = (applicant) => {
   let score = 50; // Base score
-  
-  // You can customize this based on your specific matching logic
-  // For now, we'll return a random score between 60-95 for demo
+  // For demo, return a random score between 60-95
   score = Math.floor(Math.random() * 36) + 60;
-  
   return Math.min(100, score);
 };

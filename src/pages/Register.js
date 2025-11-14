@@ -22,6 +22,8 @@ import {
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+// Removed emojis from log messages and comments. All comments are now clear and direct.
+
 // Color scheme matching the institution dashboard
 const primaryColor = '#000000';
 const secondaryColor = '#333333';

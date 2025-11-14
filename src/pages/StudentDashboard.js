@@ -1,4 +1,4 @@
-
+// src/pages/StudentDashboard.js
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   Container,
@@ -166,13 +166,13 @@ const StudentDashboard = () => {
   // Improved function to load courses with better data processing
   const loadCoursesData = async () => {
     try {
-      console.log('🔄 Loading courses data...');
+      console.log('Loading courses data...');
       
       // Method 1: Try through coursesService first
       try {
         const coursesData = await coursesService.getAvailableCourses();
         if (coursesData && coursesData.length > 0) {
-          console.log('✅ Courses loaded via service:', coursesData.length);
+          console.log('Courses loaded via service:', coursesData.length);
           const processedCourses = coursesData.map(course => ({
             id: course.id,
             name: course.name || course.title || 'Unnamed Course',
@@ -191,7 +191,7 @@ const StudentDashboard = () => {
           return processedCourses;
         }
       } catch (serviceError) {
-        console.log('⚠️ Courses service failed, trying direct Firestore...', serviceError);
+        console.log('Courses service failed, trying direct Firestore...', serviceError);
       }
 
       // Method 2: Direct Firestore query
@@ -199,7 +199,7 @@ const StudentDashboard = () => {
       const coursesSnapshot = await getDocs(coursesQuery);
       
       if (coursesSnapshot.empty) {
-        console.log('📭 No courses found in Firestore');
+        console.log('No courses found in Firestore');
         return [];
       }
 
@@ -217,7 +217,7 @@ const StudentDashboard = () => {
               institutionName = institutionDoc.data().name || institutionDoc.data().institutionName || 'Unknown Institution';
             }
           } catch (error) {
-            console.log('⚠️ Could not fetch institution name for course:', doc.id);
+            console.log('Could not fetch institution name for course:', doc.id);
           }
         }
 
@@ -243,10 +243,10 @@ const StudentDashboard = () => {
         }
       }
 
-      console.log('✅ Courses processed:', coursesData.length);
+      console.log('Courses processed:', coursesData.length);
       return coursesData;
     } catch (error) {
-      console.error('❌ Error loading courses:', error);
+      console.error('Error loading courses:', error);
       return [];
     }
   };
@@ -254,7 +254,7 @@ const StudentDashboard = () => {
   // Enhanced fallback function to load data manually
   const loadDataManually = async (uid) => {
     try {
-      console.log('🔄 Loading data manually for:', uid);
+      console.log('Loading data manually for:', uid);
       
       // Load applications manually
       const applicationsQuery = query(
@@ -305,7 +305,7 @@ const StudentDashboard = () => {
         setJobMatches([]);
       }
 
-      console.log('✅ Manual data loaded:', {
+      console.log('Manual data loaded:', {
         applications: manualApplications.length,
         courses: manualCourses.length,
         jobApps: manualJobApps.length,
@@ -315,7 +315,7 @@ const StudentDashboard = () => {
 
       return true;
     } catch (error) {
-      console.error('❌ Error loading data manually:', error);
+      console.error('Error loading data manually:', error);
       return false;
     }
   };
@@ -386,11 +386,11 @@ const StudentDashboard = () => {
                 }).filter(course => course.status === 'active' || !course.status);
                 
                 setAvailableCourses(coursesData);
-                console.log('✅ Courses listener loaded:', coursesData.length, 'courses');
+                console.log('Courses listener loaded:', coursesData.length, 'courses');
               }
             });
           } catch (coursesError) {
-            console.error('❌ Courses listener failed, loading manually:', coursesError);
+            console.error('Courses listener failed, loading manually:', coursesError);
             // Load courses manually if listener fails
             const manualCourses = await loadCoursesData();
             setAvailableCourses(manualCourses);
@@ -438,7 +438,7 @@ const StudentDashboard = () => {
 
       // If listeners fail or no courses loaded, try manual loading
       if (!listenersSetup || availableCourses.length === 0) {
-        console.log('🔄 Listeners failed or no courses, trying manual load...');
+        console.log('Listeners failed or no courses, trying manual load...');
         await loadDataManually(uid);
       }
 
@@ -446,7 +446,7 @@ const StudentDashboard = () => {
       setLoading(false);
 
     } catch (error) {
-      console.error('❌ Error initializing student data:', error);
+      console.error('Error initializing student data:', error);
       // Try manual loading as last resort
       await loadDataManually(uid);
       setDataLoaded(true);
@@ -1636,5 +1636,3 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
-
-

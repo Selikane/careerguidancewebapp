@@ -16,6 +16,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
+// Removed emojis from log messages and comments. All comments are now clear and direct.
+
 // User Management
 export const createUserDocument = async (user, additionalData) => {
   if (!user) return;
