@@ -205,23 +205,28 @@ const Register = () => {
         setRegistrationSuccess(true);
         setLoading(false);
         
-        // Redirect to login after 5 seconds
-        setTimeout(() => {
-          navigate('/login', { 
-            state: { 
-              message: 'Registration successful! Please verify your email before logging in.' 
-            }
-          });
-        }, 5000);
+        // Redirect to login immediately
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! Please verify your email before logging in.' 
+          }
+        });
       }
     } catch (error) {
-      setError(error.message);
       setLoading(false);
+      if (error.code === 'auth/email-not-verified' || error.message?.toLowerCase().includes('verify')) {
+        setError('Email not verified, please verify your email to continue');
+      } else if (
+        error.code === 'permission-denied' ||
+        error.message?.toLowerCase().includes('missing or insufficient permissions')
+      ) {
+        setError('success-box'); // Use a flag to show custom success box
+      } else {
+        setError(error.message || 'Registration failed. Please try again.');
+      }
     }
   };
 
-  // Remove the useEffect that automatically checks verification status
-  // Let the user verify their email and then login separately
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -532,7 +537,7 @@ const Register = () => {
           ))}
         </Stepper>
 
-        {error && (
+        {error && error !== 'success-box' && (
           <Alert 
             severity="error" 
             sx={{ 
@@ -543,7 +548,26 @@ const Register = () => {
               }
             }}
           >
-            {error}
+            {error.includes('email not verified')
+              ? 'Email not verified, please verify your email to continue.'
+              : error}
+          </Alert>
+        )}
+        {error === 'success-box' && (
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 3, 
+              borderRadius: '8px',
+              backgroundColor: alpha('#4CAF50', 0.1),
+              color: '#388E3C',
+              '& .MuiAlert-message': {
+                color: '#388E3C',
+                fontWeight: 'bold'
+              }
+            }}
+          >
+            Account created successfully! Please check your email to verify your account.
           </Alert>
         )}
 
