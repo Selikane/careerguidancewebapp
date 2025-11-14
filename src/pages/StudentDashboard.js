@@ -668,7 +668,6 @@ const StudentDashboard = () => {
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Card sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <School sx={{ fontSize: 64, color: accentColor, mb: 3 }} />
             <Typography variant="h4" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
               Welcome to Student Dashboard
             </Typography>
@@ -1040,7 +1039,6 @@ const StudentDashboard = () => {
           </Button>
           <Button 
             variant="outlined" 
-            startIcon={<Edit />}
             onClick={() => setProfileDialog({ open: true })}
             sx={{
               borderColor: primaryColor,
@@ -1075,11 +1073,11 @@ const StudentDashboard = () => {
             }
           }}
         >
-          <Tab label="My Applications" icon={<School />} iconPosition="start" />
-          <Tab label="Available Courses" icon={<Add />} iconPosition="start" />
-          <Tab label="Job Matches" icon={<Work />} iconPosition="start" />
-          <Tab label="Notifications" icon={<Notifications />} iconPosition="start" />
-          <Tab label="Profile & Documents" icon={<Description />} iconPosition="start" />
+          <Tab label="My Applications" />
+          <Tab label="Available Courses" />
+          <Tab label="Job Matches" />
+          <Tab label="Notifications" />
+          <Tab label="Profile & Documents" />
         </Tabs>
 
         {/* My Applications Tab */}
@@ -1091,7 +1089,6 @@ const StudentDashboard = () => {
           {applications.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <School sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Applications Yet
                 </Typography>
@@ -1204,7 +1201,6 @@ const StudentDashboard = () => {
           {availableCourses.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <School sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Courses Available
                 </Typography>
@@ -1337,7 +1333,6 @@ const StudentDashboard = () => {
           {jobMatches.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Work sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Job Matches Yet
                 </Typography>
@@ -1459,7 +1454,6 @@ const StudentDashboard = () => {
           {notifications.length === 0 ? (
             <Card sx={{ border: `1px solid ${mediumGray}`, borderRadius: '12px' }}>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <Notifications sx={{ fontSize: 64, color: accentColor, mb: 2 }} />
                 <Typography variant="h6" gutterBottom sx={{ color: primaryColor }}>
                   No Notifications
                 </Typography>
@@ -1543,7 +1537,6 @@ const StudentDashboard = () => {
                   <Typography sx={{ color: secondaryColor, mb: 2 }}><strong>Skills:</strong> {studentProfile?.skills?.join(', ') || 'None'}</Typography>
                   <Button 
                     variant="outlined" 
-                    startIcon={<Edit />}
                     sx={{ 
                       mt: 1,
                       borderColor: primaryColor,
@@ -1580,7 +1573,6 @@ const StudentDashboard = () => {
                         </Typography>
                         <Button
                           size="small"
-                          startIcon={<Upload />}
                           onClick={() => setUploadDialog({ open: true, documentType: docType })}
                           sx={{
                             color: accentColor,
