@@ -635,7 +635,7 @@ const InstitutionDashboard = () => {
 
   // Main Dashboard
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       {/* Snackbar for Notifications */}
       <Snackbar
         open={snackbar.open}
@@ -1056,12 +1056,12 @@ const InstitutionDashboard = () => {
       </Dialog>
 
       {/* --- Dashboard Header --- */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, mb: 4, gap: { xs: 2, sm: 0 } }}>
         <Box>
-          <Typography variant="h4" component="h1" gutterBottom sx={{ color: primaryColor, fontWeight: '300' }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ color: primaryColor, fontWeight: '300', fontSize: { xs: '2rem', sm: '2.5rem' } }}>
             Institution Dashboard
           </Typography>
-          <Typography variant="h6" sx={{ color: secondaryColor, fontWeight: '300' }}>
+          <Typography variant="h6" sx={{ color: secondaryColor, fontWeight: '300', fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
             {institution?.name || 'Your Institution'}
           </Typography>
           {!institution && (
@@ -1070,7 +1070,7 @@ const InstitutionDashboard = () => {
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
           <Button 
             variant="outlined" 
             startIcon={<Refresh />}
@@ -1080,6 +1080,8 @@ const InstitutionDashboard = () => {
               borderColor: accentColor,
               color: accentColor,
               borderRadius: '25px',
+              width: { xs: '100%', sm: 'auto' },
+              mb: { xs: 1, sm: 0 },
               '&:hover': {
                 borderColor: '#E55A2B',
                 backgroundColor: alpha(accentColor, 0.1)
@@ -1097,6 +1099,7 @@ const InstitutionDashboard = () => {
               color: 'white',
               borderRadius: '25px',
               px: 3,
+              width: { xs: '100%', sm: 'auto' },
               '&:hover': {
                 backgroundColor: '#E55A2B'
               }
@@ -1108,16 +1111,19 @@ const InstitutionDashboard = () => {
       </Box>
 
       {/* --- Tabbed Content --- */}
-      <Paper sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}` }}>
+      <Paper sx={{ borderRadius: '12px', border: `1px solid ${mediumGray}`, overflowX: 'auto' }}>
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
           sx={{
             '& .MuiTab-root': {
               color: secondaryColor,
               '&.Mui-selected': {
                 color: accentColor,
-              }
+              },
+              fontSize: { xs: '0.9rem', sm: '1rem' }
             },
             '& .MuiTabs-indicator': {
               backgroundColor: accentColor,

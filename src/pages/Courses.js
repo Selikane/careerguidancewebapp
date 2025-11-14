@@ -219,7 +219,7 @@ const Courses = () => {
   const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       {/* Header Section */}
       <Box sx={{ textAlign: 'center', mb: 6 }}>
         <Typography 

@@ -596,7 +596,7 @@ const CompanyDashboard = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

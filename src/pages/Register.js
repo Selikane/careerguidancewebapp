@@ -452,7 +452,7 @@ const Register = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
+    <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       <Paper 
         elevation={0} 
         sx={{ 

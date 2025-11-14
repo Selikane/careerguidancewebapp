@@ -216,7 +216,7 @@ const Login = () => {
   }
 
   return (
-    <Container component="main" maxWidth="sm" sx={{ py: 8 }}>
+    <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: '12px' }}>
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography component="h1" variant="h4" gutterBottom sx={{ fontWeight: '300', color: '#000000' }}>

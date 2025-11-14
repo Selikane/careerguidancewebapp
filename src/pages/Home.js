@@ -93,7 +93,7 @@ const Home = () => {
           textAlign: 'center'
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{ py: 4, px: { xs: 1, sm: 2, md: 4 } }}>
           <Fade in timeout={1000}>
             <Stack spacing={4} alignItems="center" sx={{ maxWidth: '800px', mx: 'auto' }}>
               
