@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   Container,
   Grid,
@@ -129,6 +129,10 @@ const CompanyDashboard = () => {
     'Project Management', 'Communication', 'Leadership'
   ];
 
+  // Store unsubscribe functions for listeners
+  const jobsUnsubRef = useRef(null);
+  const applicantsUnsubRef = useRef(null);
+
   // Helper functions for analytics
   const getApplicantStatusCounts = (applicants) => {
     const counts = { new: 0, shortlisted: 0, interview: 0, rejected: 0, hired: 0 };
@@ -213,9 +217,18 @@ const CompanyDashboard = () => {
 
   const setupJobsListener = (uid) => {
     return new Promise((resolve) => {
-      const unsubscribe = jobsService.getCompanyJobs(uid, (snapshot) => {
-        if (!snapshot || snapshot.empty) {
-          setJobs([]);
+      if (jobsUnsubRef.current) jobsUnsubRef.current(); // Unsubscribe previous
+      jobsUnsubRef.current = jobsService.getCompanyJobs(uid, (snapshot) => {
+        // If we didn't receive a snapshot object, just resolve and keep existing state
+        if (!snapshot) {
+          resolve();
+          return;
+        }
+
+        // If snapshot is empty, do not clear the existing jobs immediately.
+        // This avoids a quick flash where cached local results appear and the
+        // server responds with an empty/error causing the UI to clear.
+        if (snapshot.empty || (Array.isArray(snapshot.docs) && snapshot.docs.length === 0)) {
           resolve();
           return;
         }
@@ -229,23 +242,33 @@ const CompanyDashboard = () => {
           resolve();
         } catch (error) {
           console.error('Error processing jobs data:', error);
-          setJobs([]);
+          // keep previous jobs on error
           resolve();
         }
       }, (error) => {
         console.error('Error in jobs listener:', error);
         showSnackbar('Error loading jobs', 'error');
-        setJobs([]);
+        // Don't clear jobs on listener error; just resolve so initialization can continue
         resolve();
       });
+
+      // Note: we intentionally do not call unsubscribe here because we want the
+      // listener to remain active for realtime updates. If you plan to unmount
+      // the component, consider returning unsubscribe or storing it in a ref.
     });
   };
 
   const setupApplicantsListener = (uid) => {
     return new Promise((resolve) => {
-      const unsubscribe = applicantsService.getCompanyApplicants(uid, (snapshot) => {
-        if (!snapshot || snapshot.empty) {
-          setApplicants([]);
+      if (applicantsUnsubRef.current) applicantsUnsubRef.current(); // Unsubscribe previous
+      applicantsUnsubRef.current = applicantsService.getCompanyApplicants(uid, (snapshot) => {
+        if (!snapshot) {
+          resolve();
+          return;
+        }
+
+        // Avoid clearing applicants state when snapshot is empty
+        if (snapshot.empty || (Array.isArray(snapshot.docs) && snapshot.docs.length === 0)) {
           resolve();
           return;
         }
@@ -259,17 +282,28 @@ const CompanyDashboard = () => {
           resolve();
         } catch (error) {
           console.error('Error processing applicants data:', error);
-          setApplicants([]);
+          // keep previous applicants on error
           resolve();
         }
       }, (error) => {
         console.error('Error in applicants listener:', error);
         showSnackbar('Error loading applicants', 'error');
-        setApplicants([]);
+        // keep existing applicants on error
         resolve();
       });
+
+      // Keep the listener active for realtime updates; unsubscribe can be
+      // implemented on component unmount if needed.
     });
   };
+
+  // Cleanup listeners on unmount
+  useEffect(() => {
+    return () => {
+      if (jobsUnsubRef.current) jobsUnsubRef.current();
+      if (applicantsUnsubRef.current) applicantsUnsubRef.current();
+    };
+  }, []);
 
   const loadCompanyProfile = (uid) => {
     return new Promise((resolve) => {
@@ -742,7 +776,7 @@ const CompanyDashboard = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Company Name"
