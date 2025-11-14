@@ -16,8 +16,7 @@ import {
 } from '@mui/material';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getAuth, sendEmailVerification, onAuthStateChanged } from 'firebase/auth';
-
+import { getAuth, sendEmailVerification, onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Color scheme matching the institution dashboard
 const primaryColor = '#000000';
@@ -52,9 +51,8 @@ const Register = () => {
   const navigate = useNavigate();
 
   const [verificationSent, setVerificationSent] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [checkingVerification, setCheckingVerification] = useState(false);
   const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const auth = getAuth();
 
@@ -196,10 +194,25 @@ const Register = () => {
     try {
       const userCredential = await register(formData.email, formData.password, formData);
       if (userCredential && userCredential.user) {
+        // Send email verification
         await sendEmailVerification(userCredential.user);
+        
+        // Immediately sign out the user after registration
+        await signOut(auth);
+        
         setVerificationSent(true);
         setShowVerificationPrompt(true);
+        setRegistrationSuccess(true);
         setLoading(false);
+        
+        // Redirect to login after 5 seconds
+        setTimeout(() => {
+          navigate('/login', { 
+            state: { 
+              message: 'Registration successful! Please verify your email before logging in.' 
+            }
+          });
+        }, 5000);
       }
     } catch (error) {
       setError(error.message);
@@ -207,26 +220,8 @@ const Register = () => {
     }
   };
 
-  useEffect(() => {
-    if (showVerificationPrompt) {
-      setCheckingVerification(true);
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          await user.reload();
-          if (user.emailVerified) {
-            setIsVerified(true);
-            setCheckingVerification(false);
-            // Auto login after verification
-            navigate('/');
-          } else {
-            setIsVerified(false);
-            setCheckingVerification(false);
-          }
-        }
-      });
-      return () => unsubscribe();
-    }
-  }, [showVerificationPrompt, auth, navigate]);
+  // Remove the useEffect that automatically checks verification status
+  // Let the user verify their email and then login separately
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -552,31 +547,47 @@ const Register = () => {
           </Alert>
         )}
 
+        {registrationSuccess && (
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 3, 
+              borderRadius: '8px',
+              '& .MuiAlert-message': {
+                color: secondaryColor
+              }
+            }}
+          >
+            Account created successfully! Please verify your email address before logging in.
+          </Alert>
+        )}
+
         <form onSubmit={handleRegister}>
           {renderStepContent(activeStep)}
 
           {showVerificationPrompt && (
             <Box sx={{ mt: 4, textAlign: 'center' }}>
-              {!isVerified ? (
-                <Alert severity="info">
-                  Please verify your email address. A verification link has been sent to your email.<br />
-                  After verifying, this page will automatically log you in.
-                </Alert>
-              ) : (
-                <Alert severity="success">
-                  Your email is verified! Logging you in...
-                </Alert>
-              )}
-              {checkingVerification && (
-                <Typography sx={{ mt: 2 }}>Checking verification status...</Typography>
-              )}
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                  Verify Your Email Address
+                </Typography>
+                <Typography>
+                  We've sent a verification link to <strong>{formData.email}</strong>
+                </Typography>
+                <Typography>
+                  Please check your email and click the verification link to activate your account.
+                </Typography>
+                <Typography sx={{ mt: 1, fontWeight: 'bold' }}>
+                  You will be redirected to the login page in a few seconds...
+                </Typography>
+              </Alert>
             </Box>
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
             <Button
               onClick={handleBack}
-              disabled={activeStep === 0}
+              disabled={activeStep === 0 || registrationSuccess}
               sx={{
                 color: secondaryColor,
                 borderRadius: '25px',
@@ -593,6 +604,7 @@ const Register = () => {
                 <Button 
                   variant="contained" 
                   onClick={handleNext}
+                  disabled={registrationSuccess}
                   sx={{
                     backgroundColor: accentColor,
                     color: 'white',
@@ -609,7 +621,7 @@ const Register = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={loading}
+                  disabled={loading || registrationSuccess}
                   sx={{
                     backgroundColor: accentColor,
                     color: 'white',
